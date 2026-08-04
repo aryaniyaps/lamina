@@ -14,7 +14,7 @@ import {
   maxObservationAttempts,
   runtimeBudgetFromEnvironment,
 } from './runtime-budget.mjs';
-import { releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
+import { forceStopRuntimeOrphans, releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
 import {
   OBSERVATION_IGNORE_PATTERNS,
   observationInventorySnapshot,
@@ -165,6 +165,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   };
 
   let workerCompleted = await runWorker(1);
+  if (runtimeBudget) await forceStopRuntimeOrphans(cwd);
   let observed = await observationStatus(cwd, paths.product, generation);
   let completion = observationCompletionChecks(observed, {
     generation,
@@ -196,6 +197,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   if (!completion.complete && !live && workerDiagnostics.length < maxAttempts) {
     const retryCompleted = await runWorker(workerDiagnostics.length + 1);
     workerCompleted = retryCompleted;
+    if (runtimeBudget) await forceStopRuntimeOrphans(cwd);
     observed = await observationStatus(cwd, paths.product, generation);
     completion = observationCompletionChecks(observed, {
       generation,

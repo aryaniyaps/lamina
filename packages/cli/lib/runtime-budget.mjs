@@ -28,8 +28,9 @@ export function runtimeBudgetFromEnvironment(env = process.env) {
     worker_threads: readPositiveInt(env.LAMINA_RUNTIME_WORKER_THREADS, 1),
     observation_workers_max: readPositiveInt(env.LAMINA_RUNTIME_OBSERVATION_WORKERS, 1),
     observation_retries_max: readPositiveInt(env.LAMINA_RUNTIME_OBSERVATION_RETRIES, 0),
-    retrieval_batch_size: readPositiveInt(env.LAMINA_RUNTIME_RETRIEVAL_BATCH, 16),
+    retrieval_batch_size: readPositiveInt(env.LAMINA_RUNTIME_RETRIEVAL_BATCH, 1),
     defer_graphd_compat_recovery: env.LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY !== '0',
+    defer_retrieval_native_index: env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX !== '0',
     idle_graphd_shutdown_ms: readPositiveInt(env.LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS, 0),
   });
 }
@@ -37,6 +38,12 @@ export function runtimeBudgetFromEnvironment(env = process.env) {
 export function graphdLadybugThreads(budget = runtimeBudgetFromEnvironment()) {
   if (!budget) return null;
   return budget.graphd_threads;
+}
+
+/** Enforce Ladybug query thread caps after Connection init (ADR-015 pids.max). */
+export function applyLadybugThreadCap(connection, budget = runtimeBudgetFromEnvironment()) {
+  if (!budget || !connection?.setMaxNumThreadForExec) return;
+  connection.setMaxNumThreadForExec(Math.max(1, budget.graphd_threads));
 }
 
 export function threadLimitEnvironment(threads) {
@@ -48,6 +55,8 @@ export function threadLimitEnvironment(threads) {
     VECLIB_MAXIMUM_THREADS: cap,
     NUMEXPR_NUM_THREADS: cap,
     ORT_NUM_THREADS: cap,
+    ONNXRUNTIME_DISABLE_THREAD_SPINNING: '1',
+    ONNXRUNTIME_SESSION_OPTIONS_DISABLE_CPU_MEM_ARENA: '1',
     UV_THREADPOOL_SIZE: cap,
     TOKENIZERS_PARALLELISM: 'false',
     RAYON_NUM_THREADS: cap,
@@ -103,6 +112,12 @@ export function observationWorkerThreadEnvironment(budget = runtimeBudgetFromEnv
     COCOINDEX_MAX_INFLIGHT_COMPONENTS: '1',
     LAMINA_RUNTIME_WORKER_THREADS: cap,
   });
+}
+
+/** Retrieval worker: same serial CocoIndex/ONNX caps as observation under pids.max. */
+export function retrievalWorkerThreadEnvironment(budget = runtimeBudgetFromEnvironment()) {
+  if (!budget) return {};
+  return observationWorkerThreadEnvironment(budget);
 }
 
 export function graphdThreadEnvironment(budget = runtimeBudgetFromEnvironment()) {

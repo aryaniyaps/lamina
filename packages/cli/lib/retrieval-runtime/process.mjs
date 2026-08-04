@@ -7,10 +7,12 @@ import { graphSocketChildPath, repositoryContext, runtimePaths } from '../graph-
 import { RETRIEVAL_SCHEMA_VERSION } from './constants.mjs';
 import { verifyRetrievalModel, verifyRetrievalRuntimeAssets } from './assets.mjs';
 import { retrievalIdentity, workflowDocuments } from './documents.mjs';
-import { workerThreadEnvironment, retrievalBatchEnvironment } from '../runtime-budget.mjs';
+import { retrievalWorkerThreadEnvironment, retrievalBatchEnvironment, runtimeBudgetFromEnvironment } from '../runtime-budget.mjs';
 import {
   assertCompatibleRuntimeIdentity,
-  releaseGraphdBeforeObservation,
+  forceStopRuntimeOrphans,
+  releaseGraphdAfterCommand,
+  releaseGraphdBeforeRetrieval,
   runWithRuntimeLifecycle,
 } from '../runtime-lifecycle.mjs';
 import {
@@ -47,6 +49,16 @@ function managedWorker() {
   }
 }
 
+function workerSupportsIndexEmbed() {
+  const worker = managedWorker();
+  if (worker) {
+    const result = spawnSync(worker, ['retrieval', 'index-embed', '-h'], { encoding: 'utf8' });
+    return result.status === 0;
+  }
+  if (process.env.LAMINA_STANDALONE === '1') return false;
+  return true;
+}
+
 function workerInvocation(args, cwd) {
   const worker = managedWorker();
   if (worker) return { command: worker, args: ['retrieval', ...args] };
@@ -68,18 +80,20 @@ function workerInvocation(args, cwd) {
   };
 }
 
-function workerEnvironment(cwd, graphd, model) {
+function workerEnvironment(cwd, graphd, model, { embedOnly = false } = {}) {
   const paths = runtimePaths(cwd);
   const assets = process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER === 'deterministic'
     ? { tokenizer: null }
     : verifyRetrievalRuntimeAssets();
   return {
     ...process.env,
-    ...workerThreadEnvironment(),
+    ...retrievalWorkerThreadEnvironment(),
     ...retrievalBatchEnvironment(),
     LAMINA_SOURCE_ROOT: paths.root,
-    LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
-    LAMINA_GRAPHD_TOKEN: graphd.auth_token,
+    ...(embedOnly || !graphd ? {} : {
+      LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
+      LAMINA_GRAPHD_TOKEN: graphd.auth_token,
+    }),
     LAMINA_RETRIEVAL_MODEL_PATH: model.path || '',
     LAMINA_RETRIEVAL_MODEL_DIGEST: model.digest,
     LAMINA_RETRIEVAL_TOKENIZER_PATH: assets.tokenizer || '',
@@ -87,11 +101,11 @@ function workerEnvironment(cwd, graphd, model) {
   };
 }
 
-function runWorker(args, { cwd, input = null, graphd, model }) {
+function runWorker(args, { cwd, input = null, graphd, model, embedOnly = false }) {
   const invocation = workerInvocation(args, cwd);
   const result = spawnSync(invocation.command, invocation.args, {
     cwd: invocation.cwd || cwd,
-    env: workerEnvironment(cwd, graphd, model),
+    env: workerEnvironment(cwd, graphd, model, { embedOnly }),
     encoding: 'utf8',
     input,
     maxBuffer: 128 * 1024 * 1024,
@@ -168,13 +182,41 @@ function statusParams(snapshot, includeDocuments = false) {
   };
 }
 
+async function applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdActive = false } = {}) {
+  const budget = runtimeBudgetFromEnvironment();
+  const batchCap = budget?.retrieval_batch_size ?? 16;
+  const { upserts, members, deletes, generation, manifest } = indexPlan;
+  const spans = Math.max(upserts.length, members.length, 1);
+  if (!graphdActive) await ensureGraphd(cwd);
+  for (let offset = 0; offset < spans; offset += batchCap) {
+    await graphRequest('retrieval.apply', {
+      identity: snapshot.identity,
+      generation,
+      manifest,
+      reset: offset === 0,
+      upserts: upserts.slice(offset, offset + batchCap),
+      members: members.slice(offset, offset + batchCap),
+      deletes: offset === 0 ? deletes : [],
+      complete: false,
+    }, cwd);
+  }
+  return graphRequest('retrieval.apply', {
+    identity: snapshot.identity,
+    generation,
+    manifest,
+    upserts: [],
+    members: [],
+    complete: true,
+  }, cwd);
+}
+
 export async function ensureRetrieval(
   cwd = process.cwd(),
   { force = false, allowLexicalDegraded = false } = {},
 ) {
   return runWithRuntimeLifecycle(cwd, async () => {
   assertCompatibleRuntimeIdentity(cwd);
-  await releaseGraphdBeforeObservation(cwd);
+  await releaseGraphdBeforeRetrieval(cwd);
   let model;
   try {
     model = verifyRetrievalModel();
@@ -202,7 +244,7 @@ export async function ensureRetrieval(
     const paths = runtimePaths(cwd);
     fs.mkdirSync(paths.context, { recursive: true, mode: 0o700 });
     const retrievalStatePath = retrievalGenerationStatePath(paths.context);
-    const plan = planRetrievalSync({
+    const generationPlan = planRetrievalSync({
       repositoryRoot: cwd,
       identity: snapshot.identity,
       freshness: retrievalFreshnessContext(cwd, {
@@ -214,13 +256,25 @@ export async function ensureRetrieval(
       }),
       previous: readRetrievalGenerationState(retrievalStatePath),
     });
-    commitGenerationState(retrievalStatePath, plan, null, { phase: 'pending' });
+    commitGenerationState(retrievalStatePath, generationPlan, null, { phase: 'pending' });
     const inputFile = path.join(paths.context, `retrieval-input-${process.pid}.json`);
     fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: status.documents || {} })}\n`, {
       mode: 0o600,
     });
     try {
-      runWorker(['index', '--input', inputFile], { cwd, graphd, model });
+      const budget = runtimeBudgetFromEnvironment();
+      if (budget && workerSupportsIndexEmbed()) {
+        await releaseGraphdAfterCommand(cwd);
+        await forceStopRuntimeOrphans(cwd);
+        const indexPlan = runWorker(['index-embed', '--input', inputFile], {
+          cwd, graphd: null, model, embedOnly: true,
+        });
+        await forceStopRuntimeOrphans(cwd);
+        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan);
+      } else {
+        runWorker(['index', '--input', inputFile], { cwd, graphd, model });
+      }
+      if (runtimeBudgetFromEnvironment()) await forceStopRuntimeOrphans(cwd);
     } finally {
       fs.rmSync(inputFile, { force: true });
     }
@@ -230,12 +284,12 @@ export async function ensureRetrieval(
       error.code = 'LAMINA_RETRIEVAL_INCOMPLETE';
       throw error;
     }
-    activateGenerationPlan(plan, {
+    activateGenerationPlan(generationPlan, {
       index_digest: status.manifest?.index_digest,
       expected_count: status.counts.expected,
       committed_count: status.counts.committed,
     });
-    commitGenerationState(retrievalStatePath, plan, status.manifest, { phase: 'committed' });
+    commitGenerationState(retrievalStatePath, generationPlan, status.manifest, { phase: 'committed' });
   }
   return { snapshot, status, model, graphd };
   }, { mutation: true });

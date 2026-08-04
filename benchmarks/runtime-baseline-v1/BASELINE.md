@@ -39,7 +39,7 @@ The runtime inputs are the published `cli-v0.3.5` assets:
 
 | Asset | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `lamina-cocoindex-worker-linux-x64` | 88,690,440 | `119247359266f2a5b922b03c76d052bc76d757ec634593fbf52473bfc8ee79cc` |
+| `lamina-cocoindex-worker-linux-x64` | 77,038,920 | `536f5390e583b3f829ddfbbe33c7bdd1f4fcc3ebdccb233b61e1f7d7e6111712` |
 | `lamina-retrieval-model-int8-v1.onnx` | 161,895,621 | `ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d` |
 
 The versioned manifest remains authoritative for repository URLs, exclusion

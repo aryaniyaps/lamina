@@ -11,7 +11,7 @@
       "repository_url": "https://github.com/alan2207/bulletproof-react.git",
       "commit": "9506629ed003a561c6627735480cce4994244bb4",
       "tree_oid": "b03782f905ffcd394bdaf597c06322afbc8ed991",
-      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "baseline_manifest_sha256": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
       "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
       "observation_paths_sha256": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
       "observation_candidate_files": 535,
@@ -19,7 +19,7 @@
       "retrieval_paths_sha256": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
       "retrieval_candidate_files": 467,
       "retrieval_candidate_bytes": 693785,
-      "collection_digest": "c8d664b1800ec71a57a2f2b6b05bd9a418978bc5f465e55dd5fc7b136434bdab"
+      "collection_digest": "7b0c817fb2d96fbf5d256ab583ee1829b79346599da31477b1510ffa51530d0c"
     },
     {
       "schema": "lamina.real-repository-collection/v1",
@@ -29,7 +29,7 @@
       "repository_url": "https://github.com/outline/outline.git",
       "commit": "30730179b852d42da5078a9294f7d05a44f516b7",
       "tree_oid": "1ada87cb0c8c8066fd8f8df2401c187c05632e9d",
-      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "baseline_manifest_sha256": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
       "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
       "observation_paths_sha256": "a54821d081c82acea3bce42c769f6c39f3d388c330e432436bda7e80977e3b5c",
       "observation_candidate_files": 2539,
@@ -37,7 +37,7 @@
       "retrieval_paths_sha256": "3ba81ce78f10ff50ec4d652ebed8ef18a9e2624b3434f7a125e3a3f133ec1d7e",
       "retrieval_candidate_files": 2420,
       "retrieval_candidate_bytes": 12914792,
-      "collection_digest": "13b10545bf04be1f08749fa5b48a317284fc2a1a369bca70a5a36c43e91569b6"
+      "collection_digest": "cc2c2f2a137827923292daaf3bebfa0eed0d8ebc18ccef7945a10b35939b724c"
     },
     {
       "schema": "lamina.real-repository-collection/v1",
@@ -47,7 +47,7 @@
       "repository_url": "https://github.com/makeplane/plane.git",
       "commit": "dc9d80b2d2a499b967f0b541e083b283f463719f",
       "tree_oid": "382c6539083af65e86cdddbffd4e09884773e64e",
-      "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+      "baseline_manifest_sha256": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
       "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064",
       "observation_paths_sha256": "90fef3b430dee05642af40a636590a97fc0bbf405f37040def570ba7832a1652",
       "observation_candidate_files": 5399,
@@ -55,7 +55,7 @@
       "retrieval_paths_sha256": "de46b1ebd6495065f95d8afd365be2195f4518ed5f2e57f4d38881c9f29f3ebc",
       "retrieval_candidate_files": 4805,
       "retrieval_candidate_bytes": 21278398,
-      "collection_digest": "813e615ec1bb4300c4526727d92941e45377eb3dd4b2c7594a6e475b5ec94f68"
+      "collection_digest": "27e3d325e549e6f3aea73d6ba9a9847e650874c41915b6bc250c1e60520157f7"
     }
   ],
   "cases": [

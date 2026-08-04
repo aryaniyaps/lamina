@@ -13,8 +13,8 @@ const bytes = fs.readFileSync(FILE);
 const loaded = loadScenarioSelection();
 const selection = loaded.selection;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
-const PREVIOUS_PENDING_RAW_SHA256 = 'a21e003265985c2e8eee30fcb850aadd9f0cb68ffe4c40ccdbcc51f48e5ae654';
-const PREVIOUS_PENDING_CANONICAL_SHA256 = 'e4b711bddcdf39244ded887148abbf614c7648631cf9b07e936be837e8890168';
+const PREVIOUS_PENDING_RAW_SHA256 = 'f0c5e0bf3105566e714ceba48d234b2d2b183c588fcdaec8377baf6909ae287e';
+const PREVIOUS_PENDING_CANONICAL_SHA256 = 'd948112e0ba27e0edca29c258b69597bd56e8e8a02c96c611b8607defd666438';
 const PREVIOUS_PENDING_PURPOSE = 'reviewer_selection_pending_selection_only_no_execution_fixture_expectation_grade_or_quality_authority';
 const rebind = (tier, scenario) => {
   scenario.identity_sha256 = scenarioSelectionIdentity(tier, scenario);

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Database, Connection, json } from '@ladybugdb/core';
-import { graphdLadybugThreads } from '../runtime-budget.mjs';
+import { applyLadybugThreadCap, graphdLadybugThreads } from '../runtime-budget.mjs';
 import { EPISTEMIC_BY_INGRESS, ERROR, RESOURCE_KINDS, SCHEMA, VIEW_KINDS } from './constants.mjs';
 import { canonical, digest, ensureRuntime, fail, git, repositoryContext, safeJson } from './util.mjs';
 
@@ -633,6 +633,7 @@ export class GraphEngine {
       ? new Connection(this.database, ladybugThreads)
       : new Connection(this.database);
     this.connection.initSync();
+    applyLadybugThreadCap(this.connection);
     for (const statement of SCHEMA) this.connection.querySync(statement);
   }
 

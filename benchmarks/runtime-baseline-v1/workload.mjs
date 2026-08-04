@@ -10,12 +10,11 @@ import {
   graphdIdentity,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
-import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
 import {
   applyRuntimeBudgetToEnvironment,
   runtimeBudgetFromEnvironment,
 } from '../../packages/cli/lib/runtime-budget.mjs';
-import { releaseGraphdBeforeObservation, finalizeRuntimeCommand } from '../../packages/cli/lib/runtime-lifecycle.mjs';
+import { releaseGraphdBeforeObservation, releaseRuntimeBetweenPhases, finalizeRuntimeCommand, waitForGraphdFullyReleased } from '../../packages/cli/lib/runtime-lifecycle.mjs';
 import { summarizeRepositoryInventory } from '../../packages/cli/lib/source-inventory.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
@@ -101,13 +100,23 @@ function cleanupOwnedRoot() {
   return { removed: true, already_absent: false };
 }
 
+function resolveUvBinary() {
+  if (process.env.LAMINA_UV_BINARY) return process.env.LAMINA_UV_BINARY;
+  const result = spawnSync('which', ['uv'], { encoding: 'utf8' });
+  return result.status === 0 ? result.stdout.trim() : 'uv';
+}
+
 function childEnvironment(extra = {}) {
   const assets = path.join(baselineRoot, 'assets');
   return applyRuntimeBudgetToEnvironment({
     ...process.env,
+    LAMINA_UV_BINARY: process.env.LAMINA_UV_BINARY || resolveUvBinary(),
     LAMINA_RETRIEVAL_MODEL_PATH: runtimeInputs?.model || '',
     LAMINA_RETRIEVAL_RUNTIME: path.join(assets, 'retrieval-runtime'),
-    ...(runtimeInputs?.worker ? { LAMINA_OBSERVATION_WORKER: runtimeInputs.worker } : {}),
+    ...(runtimeInputs?.worker ? {
+      LAMINA_OBSERVATION_WORKER: runtimeInputs.worker,
+      LAMINA_RETRIEVAL_WORKER: runtimeInputs.worker,
+    } : {}),
     ...extra,
   });
 }
@@ -115,6 +124,12 @@ function childEnvironment(extra = {}) {
 async function releaseGraphdBeforeObservationCli(repository) {
   if (!runtimeBudgetFromEnvironment()) return;
   await releaseGraphdBeforeObservation(repository, { force: true });
+}
+
+async function releaseRuntimeBetweenCliPhases(repository) {
+  if (!runtimeBudgetFromEnvironment()) return;
+  await releaseRuntimeBetweenPhases(repository);
+  await releaseRuntimeBetweenPhases(repository, { timeoutMs: 30_000 });
 }
 
 function run(command, args, { cwd = REPOSITORY, env = childEnvironment(), input = null,
@@ -471,8 +486,12 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   try {
     const needsSeed = !['doctor-status-startup'].includes(scenario)
       && !(scenario === 'initial-observation' && runtimeBudgetFromEnvironment())
-      && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1');
-    if (needsSeed) seeded = await seedGraph(repository);
+      && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1')
+      && !(scenario === 'initial-retrieval-readiness' && runtimeBudgetFromEnvironment());
+    if (needsSeed) {
+      seeded = await seedGraph(repository);
+      await releaseRuntimeBetweenCliPhases(repository);
+    }
     if (scenario === 'doctor-status-startup') {
       const started = process.hrtime.bigint();
       tracker.begin('doctor');
@@ -502,11 +521,14 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
     } else if (scenario === 'initial-retrieval-readiness') {
       await releaseGraphdBeforeObservationCli(repository);
       tracker.begin('observation');
-      runTrackedCli(tracker, repository, ['graph', 'observe']);
+      measurement = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'observe']));
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
+      await waitForGraphdFullyReleased(repository);
       tracker.begin('retrieval_readiness');
       measurement = timeSync(() => runTrackedCli(tracker, repository, ['context', 'rebuild']));
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
       diagnostics = attachProductDiagnostics({
         ...compactDiagnostics(measurement.value),
         inventory: await recordRetrievalInventory(repository, metadata),
@@ -515,6 +537,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
       tracker.begin('observation');
       runTrackedCli(tracker, repository, ['graph', 'observe']);
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
       const output = path.join(repository, '.git', 'lamina', 'work', 'packet.json');
       tracker.begin('preparation');
       measurement = timeSync(() => assertUsefulPacket(
@@ -529,10 +552,10 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
     } else if (scenario === 'one-file-change' || scenario === 'multi-file-change') {
       const changed = changeFiles(repository, scenario === 'one-file-change' ? 1 : 5);
       tracker.begin('incremental_change');
-      measurement = timeSync(() => ({
-        observation: runTrackedCli(tracker, repository, ['graph', 'observe']),
-        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
-      }));
+      const observation = runTrackedCli(tracker, repository, ['graph', 'observe']);
+      await releaseRuntimeBetweenCliPhases(repository);
+      const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
+      measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
       diagnostics = {
         observation: attachProductDiagnostics(
@@ -549,13 +572,15 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
       runTrackedCli(tracker, repository, ['graph', 'observe']);
       tracker.end();
       tracker.begin('retrieval_readiness');
+      await releaseRuntimeBetweenCliPhases(repository);
       runTrackedCli(tracker, repository, ['context', 'rebuild']);
       tracker.end();
       tracker.begin('rebuild');
-      measurement = timeSync(() => ({
-        observation: runTrackedCli(tracker, repository, ['graph', 'rebuild-observations']),
-        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
-      }));
+      await releaseRuntimeBetweenCliPhases(repository);
+      const observation = runTrackedCli(tracker, repository, ['graph', 'rebuild-observations']);
+      await releaseRuntimeBetweenCliPhases(repository);
+      const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
+      measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
       diagnostics = {
         observation: attachProductDiagnostics(
@@ -612,9 +637,11 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
   const metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   const seeded = await seedGraph(repository);
+  await releaseRuntimeBetweenCliPhases(repository);
   tracker.begin('observation');
   runTrackedCli(tracker, repository, ['graph', 'observe']);
   tracker.end();
+  await releaseRuntimeBetweenCliPhases(repository);
   const samples = [];
   const diagnostics = [];
   const total = WARMUP_SAMPLES + WARM_SAMPLES;
@@ -667,6 +694,7 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
   const metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   await seedGraph(repository);
+  await releaseRuntimeBetweenCliPhases(repository);
   tracker.begin('observation');
   const child = spawn(process.execPath, [CLI, 'graph', 'observe', '--live'], {
     cwd: repository, env: childEnvironment(), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
@@ -732,6 +760,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     model: assertPinnedInput(modelFile, manifest.runtime_assets.model, 'retrieval model'),
     worker: assertPinnedInput(workerFile, manifest.runtime_assets.worker_linux_x64, 'CocoIndex worker'),
   };
+  Object.assign(process.env, childEnvironment());
   const runtimeFootprint = prepareRuntimeAssets(manifest);
   const source = ensureSource(fixture);
   let payload;

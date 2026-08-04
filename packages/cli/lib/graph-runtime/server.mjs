@@ -2,6 +2,7 @@
 /** graphd: sole Ladybug writer for canonical graph.lbdb and derived retrieval.lbdb (#69). */
 import fs from 'node:fs';
 import net from 'node:net';
+import path from 'node:path';
 import crypto from 'node:crypto';
 import { GraphEngine } from './engine.mjs';
 import { RetrievalStore } from '../retrieval-runtime/store.mjs';
@@ -12,6 +13,7 @@ import {
   recordManagedGraphdLockWithSupervisor, startManagedGraphdWithSupervisor,
 } from '../safe-runner-context.mjs';
 import {
+  digest,
   ensureAuthToken,
   graphSocketPath,
   parseDaemonLock,
@@ -59,6 +61,13 @@ async function awaitSafeStartGate() {
 
 await awaitSafeStartGate();
 const authToken = ensureAuthToken(paths);
+const observationGenerationPath = path.join(paths.cocoindex, 'target-generation');
+if (!fs.existsSync(observationGenerationPath)) {
+  fs.writeFileSync(observationGenerationPath, `${digest('generation', {
+    nonce: crypto.randomUUID(),
+    database: paths.database,
+  })}\n`);
+}
 
 function acquireLock() {
   try {
@@ -116,9 +125,13 @@ if (process.platform !== 'win32') {
     if (error?.code !== 'ENOENT') throw error;
   }
 }
-const engine = new GraphEngine(paths);
 const retrieval = new RetrievalStore(paths);
 const retrievalEmbedder = new RetrievalEmbedder();
+let graphEngine = null;
+function engine() {
+  if (!graphEngine) graphEngine = new GraphEngine(paths);
+  return graphEngine;
+}
 
 function authenticate(request) {
   const actual = Buffer.from(String(request.auth || ''));
@@ -139,9 +152,9 @@ async function dispatch(request) {
     capabilities: GRAPH_CAPABILITIES,
   };
   if (request.method === 'shutdown') return { pid: process.pid, shutting_down: true };
-  if (request.method === 'observation.apply') return engine.applyObservationBatch(request.params || {});
-  if (request.method === 'observation.status') return engine.observationStatus(request.params || {});
-  if (request.method === 'observation.invalidate') return engine.invalidateObservations(request.params?.product || paths.product);
+  if (request.method === 'observation.apply') return engine().applyObservationBatch(request.params || {});
+  if (request.method === 'observation.status') return engine().observationStatus(request.params || {});
+  if (request.method === 'observation.invalidate') return engine().invalidateObservations(request.params?.product || paths.product);
   if (request.method === 'retrieval.status') return retrieval.status(request.params || {});
   if (request.method === 'retrieval.apply') return retrieval.apply(request.params || {});
   if (request.method === 'retrieval.query') {
@@ -155,32 +168,32 @@ async function dispatch(request) {
     return retrieval.retrievalQuery({ ...params, embedding });
   }
   if (request.method === 'retrieval.invalidate') return retrieval.invalidate(request.params || {});
-  const context = engine.currentContext(request.cwd || cwd);
+  const context = engine().currentContext(request.cwd || cwd);
   switch (request.method) {
-    case 'status': return engine.status(context);
-    case 'session.start': return engine.startSession({ branch: context.branch, source_revision: context.source_revision, id: request.params?.id });
-    case 'session.query': return engine.querySession(request.params?.id);
-    case 'session.publish': return engine.publishSession(request.params?.id, context.source_revision);
-    case 'session.rebase': return engine.rebaseSession(request.params?.id);
-    case 'session.abort': return engine.abortSession(request.params?.id);
-    case 'resource.propose': return engine.stageResource(request.params?.session, request.params?.resource, 'agent');
-    case 'statement.propose': return engine.stageStatement(request.params?.session, request.params?.statement, 'agent');
-    case 'resource.retire': return engine.retireResource(request.params?.session, request.params?.ref);
-    case 'statement.retire': return engine.retireStatement(request.params?.session, request.params?.id);
-    case 'graph.query': return engine.graphQuery(request.params || {}, context);
-    case 'graph.diff': return engine.diff(request.params?.base || 'main', request.params?.head || 'HEAD', context);
-    case 'graph.validate': return engine.validateView(
+    case 'status': return engine().status(context);
+    case 'session.start': return engine().startSession({ branch: context.branch, source_revision: context.source_revision, id: request.params?.id });
+    case 'session.query': return engine().querySession(request.params?.id);
+    case 'session.publish': return engine().publishSession(request.params?.id, context.source_revision);
+    case 'session.rebase': return engine().rebaseSession(request.params?.id);
+    case 'session.abort': return engine().abortSession(request.params?.id);
+    case 'resource.propose': return engine().stageResource(request.params?.session, request.params?.resource, 'agent');
+    case 'statement.propose': return engine().stageStatement(request.params?.session, request.params?.statement, 'agent');
+    case 'resource.retire': return engine().retireResource(request.params?.session, request.params?.ref);
+    case 'statement.retire': return engine().retireStatement(request.params?.session, request.params?.id);
+    case 'graph.query': return engine().graphQuery(request.params || {}, context);
+    case 'graph.diff': return engine().diff(request.params?.base || 'main', request.params?.head || 'HEAD', context);
+    case 'graph.validate': return engine().validateView(
       request.params?.at || 'HEAD',
       request.params?.scope || null,
       context,
     );
-    case 'design.walk.prepare': return engine.designWalkTask(request.params || {}, context);
-    case 'design.walk.record': return engine.recordDesignWalk(request.params || {}, context);
-    case 'work.context': return engine.implementationContext(request.params || {}, context);
-    case 'graph.backup': return engine.backup(request.params?.output);
-    case 'graph.restore': return engine.restore(request.params?.input);
-    case 'mission.compile': return engine.compileMissions(request.params || {}, context);
-    case 'mission.run': return engine.runMission(request.params || {}, context);
+    case 'design.walk.prepare': return engine().designWalkTask(request.params || {}, context);
+    case 'design.walk.record': return engine().recordDesignWalk(request.params || {}, context);
+    case 'work.context': return engine().implementationContext(request.params || {}, context);
+    case 'graph.backup': return engine().backup(request.params?.output);
+    case 'graph.restore': return engine().restore(request.params?.input);
+    case 'mission.compile': return engine().compileMissions(request.params || {}, context);
+    case 'mission.run': return engine().runMission(request.params || {}, context);
     default: {
       const error = new Error(`Unknown graphd method: ${request.method}`);
       error.code = ERROR.BAD_REQUEST;
@@ -240,7 +253,7 @@ function shutdown() {
   server.close(() => {
     try { retrievalEmbedder.close(); } catch {}
     try { retrieval.close(); } catch {}
-    try { engine.close(); } catch {}
+    try { graphEngine?.close(); } catch {}
     process.exit(0);
   });
 }

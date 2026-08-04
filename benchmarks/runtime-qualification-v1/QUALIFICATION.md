@@ -49,7 +49,7 @@ Removed or deferred:
 | Footprint | Valid (~405 MiB peak) | **Valid** (~386 MiB cgroup peak) |
 | Doctor/status/startup | Valid (median 459 ms cold) | **Valid** (3/3 cold samples; no preflight refusal) |
 | Initial observation | Invalid (`pids` refusal) | **Valid** (3/3 cold samples; graphd released between samples) |
-| Retrieval readiness | Blocked | **Invalid** — promotion path `safety_limit_exceeded` at `pids.max` |
+| Retrieval readiness | Blocked | **Invalid** — promotion `safety_limit_exceeded` at `pids.max` (`peak_pids: 64`) |
 | Warm preparation (30 samples) | Blocked | Blocked after retrieval-readiness |
 | Remaining scenarios | Blocked | Blocked |
 
@@ -59,10 +59,26 @@ Removed or deferred:
 `initial-observation` is resolved.
 
 **Current small-tier blocker:** aggregate task count on `initial-retrieval-readiness`
-(context rebuild after observation), not cold-sample isolation.
+still trips cgroup `pids.max` (`peak_pids: 64`, `pids.events.max: 1`) during the
+retrieval `index-embed` + `retrieval.apply` phase. Attribution shows a rebuild-phase
+graphd spike to ~47 threads plus safe-runner infrastructure overhead.
 
 Attribution reference:
 [`benchmarks/runtime-baseline-v1/attribution/small.json`](../runtime-baseline-v1/attribution/small.json).
+
+Latest rerun (2026-08-04, fresh safe-runner state, `/tmp/lamina-baseline-retrieval-test4`):
+footprint + doctor + initial-observation **valid**; `initial-retrieval-readiness`
+promotion **invalid** at `peak_pids: 64`.
+
+Fixes landed on this branch (not yet sufficient for promotion pass):
+
+- Split `index-embed` + CLI-side batched `retrieval.apply` under bounded topology
+- Rebuilt `cocoindex-worker` with `retrieval index-embed` subcommand (manifest pin updated)
+- `defer_retrieval_native_index` under bounded topology
+- Subprocess CLI phases in baseline workload with `releaseRuntimeBetweenPhases` +
+  `waitForGraphdFullyReleased` between observe and rebuild
+- Lazy `GraphEngine` init in graphd for retrieval-only IPC (avoids opening `graph.lbdb` early)
+- `applyLadybugThreadCap` on Ladybug connections and per-apply reinforcement
 
 ---
 

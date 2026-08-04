@@ -1392,7 +1392,8 @@ export function prepareExecutionSnapshot({
         mode: Number(stat.mode & 0o7777n), size: String(stat.size), digest: copied.digest,
       };
     }
-    if (auditedEntrypoint === 'scripts/build-standalone-cli.mjs') {
+    const stageUv = auditedEntrypoint === 'scripts/build-standalone-cli.mjs';
+    if (stageUv) {
       const uvSource = resolveProgram(environment.LAMINA_UV_BINARY
         || (process.platform === 'win32' ? 'uv.exe' : 'uv'), cwd, environment);
       const stagedUv = path.join(root, 'infrastructure', process.platform === 'win32' ? 'uv.exe' : 'uv');
@@ -1401,7 +1402,9 @@ export function prepareExecutionSnapshot({
       entries.push({ label: 'infrastructure:uv', path: stagedUv, type: 'file', ...copied });
       stagedInfrastructure.uv = stagedUv;
       environmentOverrides.LAMINA_UV_BINARY = stagedUv;
-      environmentOverrides.LAMINA_NODE_BINARY = stagedInfrastructure.node;
+      if (auditedEntrypoint === 'scripts/build-standalone-cli.mjs') {
+        environmentOverrides.LAMINA_NODE_BINARY = stagedInfrastructure.node;
+      }
     }
   }
   const physicalExecutable = fs.realpathSync.native(command[0]);

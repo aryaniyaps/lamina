@@ -42,8 +42,8 @@ const canonical = (value) => Array.isArray(value) ? value.map(canonical)
     : value;
 const sha256 = (value) => crypto.createHash('sha256').update(value).digest('hex');
 
-export const SCENARIO_SELECTION_RAW_SHA256 = 'f04cce5a644807dc6804ff6bc020a6daca1972ec5a2631434105e260066bcf03';
-export const SCENARIO_SELECTION_CANONICAL_SHA256 = '57ee96a80f0b12e33f8614577cada1c21a84b02d41216ea7741acfd2017f15b1';
+export const SCENARIO_SELECTION_RAW_SHA256 = '89546833e6de2a6fff8ac9d27efdd2ddc7c7a9a899bcb410b5e2826de61ea3b5';
+export const SCENARIO_SELECTION_CANONICAL_SHA256 = 'ce7e7ddfacd8e3a958e2992aa966d525cc9cc9f81e6df188b263a704f72f48b8';
 export const SCENARIO_SELECTION_STATUS = STATUS;
 export const SCENARIO_SELECTION_KINDS = KINDS;
 export const AUDITED_DISCOVERY_IDENTITIES = Object.freeze({

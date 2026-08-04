@@ -58,9 +58,9 @@ const stateRow = (item) => item.kind.intent === 'new_workflow' || item.kind.inte
 assert.equal(loaded.raw_sha256, CASE_EXPECTATIONS_RAW_SHA256);
 assert.equal(loaded.canonical_sha256, CASE_EXPECTATIONS_CANONICAL_SHA256);
 assert.equal(CASE_EXPECTATIONS_RAW_SHA256,
-  'dfbfb99528e8e898449f169eff4932ca29666b17f2123c535161f9c1654e8b4d');
+  'e08f5501a1d3b70c4304bcbf5607e32547dcc04a03a53c93349ef2407ed1ed79');
 assert.equal(CASE_EXPECTATIONS_CANONICAL_SHA256,
-  '59766f5b63c14e1da424e4749e730b13f4512d963b6f32c3407b4700f59bc86d');
+  '392191168e754aa5ae5f07c782545cfc165df08328ebd6ba2fd9415f3b6487e8');
 assert.equal(sha256(bytes), CASE_EXPECTATIONS_RAW_SHA256);
 assert.equal(fixtureDigest(fixture), CASE_EXPECTATIONS_CANONICAL_SHA256);
 assert.equal(fixture.cases.length, 72);

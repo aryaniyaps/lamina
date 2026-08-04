@@ -10,6 +10,7 @@ import {
   finalizeRuntimeCommand,
   readRuntimeIdentity,
   releaseGraphdAfterCommand,
+  releaseRuntimeBetweenPhases,
   shouldReleaseGraphdAfterCommand,
   writeRuntimeIdentity,
 } from '../packages/cli/lib/runtime-lifecycle.mjs';
@@ -71,6 +72,10 @@ assert.equal(absent.reason, 'absent');
 const finalized = await finalizeRuntimeCommand(root);
 assert.equal(finalized.graphd.released, false);
 assert.equal(finalized.graphd.reason, 'absent');
+
+const betweenPhases = await releaseRuntimeBetweenPhases(root);
+assert.equal(betweenPhases.released, true);
+assert.equal(betweenPhases.reason, 'absent');
 
 const kept = await releaseGraphdAfterCommand(root, { persistGraphd: true });
 assert.equal(kept.released, false);

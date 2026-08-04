@@ -52,8 +52,8 @@
     "release": "cli-v0.3.5",
     "worker_linux_x64": {
       "url": "https://github.com/aryaniyaps/lamina/releases/download/cli-v0.3.5/lamina-cocoindex-worker-linux-x64",
-      "sha256": "119247359266f2a5b922b03c76d052bc76d757ec634593fbf52473bfc8ee79cc",
-      "bytes": 88690440
+      "sha256": "536f5390e583b3f829ddfbbe33c7bdd1f4fcc3ebdccb233b61e1f7d7e6111712",
+      "bytes": 77038920
     },
     "model": {
       "url": "https://github.com/aryaniyaps/lamina/releases/download/cli-v0.3.5/lamina-retrieval-model-int8-v1.onnx",

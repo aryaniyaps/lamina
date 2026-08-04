@@ -2,7 +2,7 @@
   "schema": "lamina.real-repository-oracle-evidence-selection/v1",
   "purpose": "pending_authoring_selection_only_not_grade_or_expectation_authority",
   "authority": {
-    "baseline_manifest_sha256": "9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba",
+    "baseline_manifest_sha256": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
     "candidate_policy_sha256": "08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064"
   },
   "tiers": {

@@ -29,7 +29,7 @@ function digest(value) {
   ).digest('hex');
 }
 
-export const BASELINE_MANIFEST_SHA256 = '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba';
+export const BASELINE_MANIFEST_SHA256 = 'f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975';
 export function reviewedManifestDigest(bytes) {
   return digest(Buffer.from(Buffer.from(bytes).toString('utf8').replaceAll('\r\n', '\n')));
 }

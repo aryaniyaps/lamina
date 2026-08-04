@@ -364,9 +364,9 @@ const allowedPublicClosure = new Set([
 const auditedPublicBytes = new Map([
   [publicEntry, '63a5452c869f6ce217b22ce304e44580b4ad2a7adba5a89e123d2139d2d69298'],
   ['benchmarks/real-repository-oracle-v1/workflow-seed.mjs',
-    'c2afa8a92c833cc3fa4bd2e36c00ace98bab1e44eace2ea14b444c21f71d075b'],
+    '20d57e587c3c67702cad4f8260fafe38222dd97e8c7d3b392f01ba050cf95a18'],
   ['benchmarks/real-repository-oracle-v1/workflows-v1.json',
-    'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d'],
+    '65e5d72b17079d6a979944e787fcf7f350a37d8638d104340e9efc77da8a928c'],
 ]);
 const effectiveLfPaths = ['.gitattributes', ...auditedPublicBytes.keys()];
 assert.deepEqual([...auditedPublicBytes.keys()].sort(), [...allowedPublicClosure].sort());

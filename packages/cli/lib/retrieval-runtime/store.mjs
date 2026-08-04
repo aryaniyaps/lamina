@@ -2,7 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Connection, Database, json } from '@ladybugdb/core';
-import { graphdLadybugThreads } from '../runtime-budget.mjs';
+import {
+  applyLadybugThreadCap, graphdLadybugThreads, runtimeBudgetFromEnvironment,
+} from '../runtime-budget.mjs';
 import {
   RETRIEVAL_DIMENSIONS,
   RETRIEVAL_DENSE_CANDIDATE_LIMIT,
@@ -95,6 +97,7 @@ export class RetrievalStore {
         ? new Connection(this.database, ladybugThreads)
         : new Connection(this.database);
       this.connection.initSync();
+      applyLadybugThreadCap(this.connection);
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     } catch (error) {
       this.close();
@@ -108,6 +111,7 @@ export class RetrievalStore {
         ? new Connection(this.database, ladybugThreads)
         : new Connection(this.database);
       this.connection.initSync();
+      applyLadybugThreadCap(this.connection);
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     }
     this.migrateRetrievalSchema();
@@ -207,6 +211,7 @@ export class RetrievalStore {
 
   rebuildNativeIndexes() {
     if (process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') return;
+    if (runtimeBudgetFromEnvironment()?.defer_retrieval_native_index) return;
     this.ensureExtensions();
     const indexes = this.connection.querySync('CALL SHOW_INDEXES() RETURN *').getAllSync();
     for (const index of indexes) {
@@ -369,6 +374,8 @@ export class RetrievalStore {
   }
 
   apply(params = {}) {
+    this.ensureOpen();
+    applyLadybugThreadCap(this.connection);
     const {
       identity,
       generation,
@@ -391,7 +398,6 @@ export class RetrievalStore {
     if (!Array.isArray(deletes) || deletes.some((item) => typeof item !== 'string' || !item)) {
       throw retrievalFailure('Retrieval deletion keys are malformed.');
     }
-    this.ensureOpen();
     this.transaction(() => {
       if (reset) {
         const previous = this.query(

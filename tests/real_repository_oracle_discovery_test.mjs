@@ -288,7 +288,7 @@ assert.deepEqual(reportedSizes, [
 const legacyLine = `LAMINA_REAL_REPOSITORY_CASE_DISCOVERY_V2=${zlib.brotliCompressSync(
   Buffer.from(JSON.stringify(first)), { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11 } },
 ).toString('base64url')}`;
-assert.equal(Buffer.byteLength(legacyLine), 4_517,
+assert.equal(Buffer.byteLength(legacyLine), 4_508,
   'c009-format same-logical-result JSON+Brotli baseline is frozen');
 assert.equal(Buffer.byteLength(encoded.line), 4_501,
   'same-fixture schema-specific wire measurement is frozen');

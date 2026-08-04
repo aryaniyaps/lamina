@@ -42,8 +42,8 @@ function isAcceptedStateRow(item) {
     || ['rename', 'delete', 'checkout_branch', 'add_worktree'].includes(operation);
 }
 
-export const CASE_EXPECTATIONS_RAW_SHA256 = 'dfbfb99528e8e898449f169eff4932ca29666b17f2123c535161f9c1654e8b4d';
-export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '59766f5b63c14e1da424e4749e730b13f4512d963b6f32c3407b4700f59bc86d';
+export const CASE_EXPECTATIONS_RAW_SHA256 = 'e08f5501a1d3b70c4304bcbf5607e32547dcc04a03a53c93349ef2407ed1ed79';
+export const CASE_EXPECTATIONS_CANONICAL_SHA256 = '392191168e754aa5ae5f07c782545cfc165df08328ebd6ba2fd9415f3b6487e8';
 export const RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256 = '092cfbb1313ccdec0afd2064a37dd9c9e70fff2aafa7e9ae2cdb73f09d1a58d6';
 export function semanticMappingReceiptMatches(actualDigest = semanticCaseMappingDigest()) {
   return actualDigest === RECEIPT_SEMANTIC_CASE_MAPPING_CANONICAL_SHA256
@@ -56,7 +56,7 @@ export const CASE_EXPECTATION_REVIEW_AUTHORITY = Object.freeze({
   fixture_canonical_sha256: CASE_EXPECTATIONS_CANONICAL_SHA256,
   baseline_manifest_sha256: BASELINE_MANIFEST_SHA256,
   candidate_policy_sha256: CANDIDATE_POLICY_SHA256,
-  collections_sha256: 'f867f9a122e6025bb7cd08752aae6598a797e77a4b9b752f2f289bf1d3a46244',
+  collections_sha256: '1539b5917e948329e77b1670458dee95c34558952c9f29ffdbce2201c9ca1798',
   workflow_seed_raw_sha256: WORKFLOW_SEED_RAW_SHA256,
   workflow_seed_canonical_sha256: WORKFLOW_SEED_CANONICAL_SHA256,
   observation_support_raw_sha256: OBSERVATION_CATEGORY_SUPPORT_RAW_SHA256,

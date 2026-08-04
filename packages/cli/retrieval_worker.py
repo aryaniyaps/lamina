@@ -375,8 +375,7 @@ def index_digest(items: list[dict[str, str]]) -> str:
     return sha256(canonical(canonical_items))
 
 
-def index_command(input_path: pathlib.Path) -> dict[str, Any]:
-    snapshot = json.loads(input_path.read_text())
+def build_index_plan(snapshot: dict[str, Any]) -> dict[str, Any]:
     upserts, members, logical_keys = prepare_documents(snapshot)
     previous = snapshot.get("previous", {})
     deletes = sorted(set(previous) - logical_keys)
@@ -421,6 +420,28 @@ def index_command(input_path: pathlib.Path) -> dict[str, Any]:
             "observation_membership_digest": snapshot.get("observation_membership_digest", ""),
         }
     )
+    return {
+        "upserts": upserts,
+        "members": members,
+        "deletes": deletes,
+        "generation": generation,
+        "manifest": manifest,
+    }
+
+
+def index_embed_command(input_path: pathlib.Path) -> dict[str, Any]:
+    snapshot = json.loads(input_path.read_text())
+    return {"ok": True, **build_index_plan(snapshot)}
+
+
+def index_command(input_path: pathlib.Path) -> dict[str, Any]:
+    snapshot = json.loads(input_path.read_text())
+    plan = build_index_plan(snapshot)
+    upserts = plan["upserts"]
+    members = plan["members"]
+    deletes = plan["deletes"]
+    generation = plan["generation"]
+    manifest = plan["manifest"]
     batch_cap = _retrieval_batch_cap()
     for offset in range(0, max(len(upserts), len(members), 1), batch_cap):
         graphd_request(
@@ -478,6 +499,8 @@ def main(argv: list[str] | None = None) -> int:
     subparsers = parser.add_subparsers(dest="command", required=True)
     index_parser = subparsers.add_parser("index")
     index_parser.add_argument("--input", required=True, type=pathlib.Path)
+    index_embed_parser = subparsers.add_parser("index-embed")
+    index_embed_parser.add_argument("--input", required=True, type=pathlib.Path)
     subparsers.add_parser("embed")
     extract_parser = subparsers.add_parser("extract-assets")
     extract_parser.add_argument("--destination", required=True, type=pathlib.Path)
@@ -485,6 +508,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "index":
         result = index_command(args.input)
+    elif args.command == "index-embed":
+        result = index_embed_command(args.input)
     elif args.command == "embed":
         request = json.loads(sys.stdin.read())
         result = {"embeddings": Embedder().encode(request["texts"])}

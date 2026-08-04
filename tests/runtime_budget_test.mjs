@@ -6,6 +6,7 @@ import {
   graphdThreadEnvironment,
   maxObservationAttempts,
   observationWorkerThreadEnvironment,
+  retrievalWorkerThreadEnvironment,
   retrievalBatchEnvironment,
   runtimeBudgetFromEnvironment,
   threadLimitEnvironment,
@@ -29,6 +30,7 @@ assert.equal(workerThreadEnvironment(budget).ORT_NUM_THREADS, '3');
 assert.equal(retrievalBatchEnvironment(budget).LAMINA_RUNTIME_RETRIEVAL_BATCH, '8');
 assert.equal(graphdThreadEnvironment(budget).OMP_NUM_THREADS, '2');
 assert.equal(observationWorkerThreadEnvironment(budget).COCOINDEX_MAX_INFLIGHT_COMPONENTS, '1');
+assert.equal(retrievalWorkerThreadEnvironment(budget).COCOINDEX_MAX_INFLIGHT_COMPONENTS, '1');
 assert.equal(maxObservationAttempts(budget), 2);
 
 const applied = applyRuntimeBudgetToEnvironment({ HOME: '/tmp' }, budget);
