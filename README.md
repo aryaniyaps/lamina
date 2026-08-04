@@ -307,6 +307,12 @@ active-attempt fence exists before release, and graphd uses a durable
 reserve-before-spawn, bind-after-spawn, seal-after-readiness protocol. See the
 [crash-safe runner guide](docs/content/advanced/safe-runner.mdx).
 
+Final Linux release qualification (#58) is documented in
+[`benchmarks/runtime-qualification-v1/QUALIFICATION.md`](benchmarks/runtime-qualification-v1/QUALIFICATION.md).
+Presubmit runs oracle contract suites via `npm run test:runtime-qualification:presubmit`;
+the full product matrix is workflow_dispatch-only in
+`.github/workflows/runtime-qualification.yml`.
+
 The standalone CLI, matching private native CocoIndex worker, and shared
 offline retrieval model are published as checksum-verified assets on the
 [GitHub Releases page](https://github.com/aryaniyaps/lamina/releases).

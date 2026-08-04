@@ -7,8 +7,19 @@ Recorded through the first enforced safety refusal on 2026-08-02. Re-validated o
 outcome: the small fixture produced valid footprint and cold doctor/status/startup
 results, then its initial observation reached the unchanged aggregate
 `pids.max=64` ceiling, so that scenario remains invalid and every later scenario
-and tier is explicitly blocked. The PID-limit peaks are safety diagnostics, not
-performance samples.
+and tier is explicitly blocked.
+
+Post-#53–#77 re-measurement at `d94f8bdd` (see
+[`runtime-qualification-v1/QUALIFICATION.md`](../runtime-qualification-v1/QUALIFICATION.md)):
+footprint and doctor/status remain valid; `initial-observation` promotion now
+succeeds but cold sample isolation fails with `preflight_refused` when graphd
+from the prior sample has not stopped. The PID-limit peaks in the 2026-08-02/03
+runs are safety diagnostics, not performance samples.
+
+After the #70 lifecycle fix on PR #87 (`finalizeRuntimeCommand` on CLI exit and
+baseline `disposeRepository` teardown), `initial-observation` completes 3/3 cold
+samples without preflight refusal. The small matrix now blocks at
+`initial-retrieval-readiness` (`pids.max`), not cold-sample isolation.
 
 This is the truthful unoptimized baseline. The harness measures the public CLI
 commands and does not alter Lamina's stores, model, worker topology, batching,
@@ -28,7 +39,7 @@ The runtime inputs are the published `cli-v0.3.5` assets:
 
 | Asset | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `lamina-cocoindex-worker-linux-x64` | 88,690,440 | `119247359266f2a5b922b03c76d052bc76d757ec634593fbf52473bfc8ee79cc` |
+| `lamina-cocoindex-worker-linux-x64` | 77,038,920 | `536f5390e583b3f829ddfbbe33c7bdd1f4fcc3ebdccb233b61e1f7d7e6111712` |
 | `lamina-retrieval-model-int8-v1.onnx` | 161,895,621 | `ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d` |
 
 The versioned manifest remains authoritative for repository URLs, exclusion

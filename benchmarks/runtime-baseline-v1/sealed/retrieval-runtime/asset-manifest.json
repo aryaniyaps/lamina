@@ -1,0 +1,31 @@
+{
+  "schema": "lamina.retrieval-runtime-assets/v1",
+  "ladybug_version": "0.19.0",
+  "model_id": "jinaai/jina-embeddings-v2-base-code",
+  "model_revision": "516f4baf13dec4ddddda8631e019b5737c8bc250",
+  "files": [
+    {
+      "role": "tokenizer",
+      "path": "tokenizer.json",
+      "embedded_path": "tokenizer.json",
+      "sha256": "b01c78a902aa4facb2f47f95449f48e2f7bbfea5d2472ee2f6ce92323c6f86e5",
+      "bytes": 2561316
+    },
+    {
+      "role": "fts",
+      "path": "extensions/fts.lbug_extension",
+      "embedded_path": "extensions/fts.lbug_extension.base64",
+      "encoding": "base64",
+      "sha256": "3ae7d7787aca397102e4a30a26ec2824884c3a66a2228c9e6997a9cfbc97a144",
+      "bytes": 2225568
+    },
+    {
+      "role": "vector",
+      "path": "extensions/vector.lbug_extension",
+      "embedded_path": "extensions/vector.lbug_extension.base64",
+      "encoding": "base64",
+      "sha256": "61b8e31cfad74616fe5aa04a412c9273f58110c10cea3bfa7a4109b89e01632e",
+      "bytes": 1162360
+    }
+  ]
+}

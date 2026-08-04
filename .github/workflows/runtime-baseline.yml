@@ -103,7 +103,7 @@ jobs:
             -o "$input_dir/cocoindex-worker"
           printf '%s  %s\n' \
             ed45870251c9f0cf656e78aab0d37a23489066df8a222bb1c8caf8a45f2cb16d "$input_dir/model.onnx" \
-            119247359266f2a5b922b03c76d052bc76d757ec634593fbf52473bfc8ee79cc "$input_dir/cocoindex-worker" | sha256sum --check
+            536f5390e583b3f829ddfbbe33c7bdd1f4fcc3ebdccb233b61e1f7d7e6111712 "$input_dir/cocoindex-worker" | sha256sum --check
           chmod 0700 "$input_dir/cocoindex-worker"
           printf 'LAMINA_BASELINE_MODEL=%s\nLAMINA_BASELINE_WORKER=%s\n' \
             "$input_dir/model.onnx" "$input_dir/cocoindex-worker" >> "$GITHUB_ENV"

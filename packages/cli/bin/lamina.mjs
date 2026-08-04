@@ -4,7 +4,9 @@ import path from 'node:path';
 import { graphRequest } from '../lib/graph-runtime/client.mjs';
 import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
 import { runObservation } from '../lib/observe.mjs';
+import { runRetrievalReadinessBaseline } from '../lib/retrieval-readiness-baseline.mjs';
 import { rebuildRetrieval, retrievalStatus } from '../lib/retrieval-runtime/process.mjs';
+import { finalizeRuntimeCommand } from '../lib/runtime-lifecycle.mjs';
 import { checkWork, deriveWorkMap, prepareWork, verifyWork } from '../lib/work-context.mjs';
 import { setupAgent } from '../lib/agent-setup.mjs';
 
@@ -290,6 +292,9 @@ async function run() {
     if (command === 'rebuild-observations') {
       return runObservation({ invalidate: true });
     }
+    if (command === 'retrieval-readiness') {
+      return runRetrievalReadinessBaseline();
+    }
   }
   if (domain === 'session') {
     if (command === '--help' || command === '-h' || command === 'help') return plain(HELP.session);
@@ -328,4 +333,10 @@ try {
 } catch (error) {
   process.stderr.write(`${JSON.stringify({ ok: false, error: { code: error.code || 'LAMINA_INTERNAL', message: error.message, details: error.details || {} } }, null, 2)}\n`);
   process.exitCode = 1;
+} finally {
+  if (process.env.LAMINA_CLI_SKIP_RUNTIME_FINALIZE !== '1') {
+    try {
+      await finalizeRuntimeCommand(process.cwd());
+    } catch {}
+  }
 }

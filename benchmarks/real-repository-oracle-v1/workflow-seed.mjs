@@ -22,9 +22,9 @@ const FORBIDDEN_KEY_PREFIXES = Object.freeze([
   'rank', 'rationale', 'request', 'threshold',
 ]);
 const PUBLIC_AUTHORITY = Object.freeze({
-  baseline_manifest_sha256: '9e8319288d69b77f77f2b3e386c868f83e62a1b7032ca4f3deb443acf60bb3ba',
+  baseline_manifest_sha256: 'f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975',
   candidate_policy_sha256: '08425c000f94788345e1b7d713f89f6b82c0586e36bafa20c74155142baff064',
-  evidence_selection_raw_sha256: '338540672264c5bd2bd98164fa120e6cceea6ac5408fcb7c77986d786d70f7d2',
+  evidence_selection_raw_sha256: '7ee53673c354b4367f1fcee1b6b09f8dad9b651d821d34239c0523740f8ddf6e',
 });
 const PUBLIC_PINS = Object.freeze({
   small: Object.freeze({ repository_url: 'https://github.com/alan2207/bulletproof-react.git', commit: '9506629ed003a561c6627735480cce4994244bb4', tree_oid: 'b03782f905ffcd394bdaf597c06322afbc8ed991' }),
@@ -32,14 +32,14 @@ const PUBLIC_PINS = Object.freeze({
   large: Object.freeze({ repository_url: 'https://github.com/makeplane/plane.git', commit: 'dc9d80b2d2a499b967f0b541e083b283f463719f', tree_oid: '382c6539083af65e86cdddbffd4e09884773e64e' }),
 });
 
-export const WORKFLOW_SEED_RAW_SHA256 = 'adada5586cc3b0ccc2dd2f1de377a654de4793d5ede33de44bff4d91cf45499d';
-export const WORKFLOW_SEED_CANONICAL_SHA256 = '6392d0ca49c9c06ad9c3c2a4bdee170b1fa8e47a01a85ae142135f78e6326625';
+export const WORKFLOW_SEED_RAW_SHA256 = '65e5d72b17079d6a979944e787fcf7f350a37d8638d104340e9efc77da8a928c';
+export const WORKFLOW_SEED_CANONICAL_SHA256 = 'e91a8fab9d57e03226f647dcceb171b7551b8d2af606140bd08c381cc11fd89e';
 export const WORKFLOW_SEED_SCHEMA = 'lamina.real-repository-oracle-workflows/v1';
 export const WORKFLOW_TIER_SEED_SCHEMA = 'lamina.real-repository-oracle-workflow-tier-seed/v1';
 export const WORKFLOW_TIER_SEED_CANONICAL_SHA256 = Object.freeze({
-  small: '75ba8214e2663fc738d224aef59f8f9d53252e8a0a3ebe0fe3bfdf59b90dc493',
-  medium: 'c3814a291450a89988f95c4a316c44d6855cf8530ef1a898ef737a9734ead358',
-  large: 'e6a1451173af1e2ef3dd30c97e11d06b0f56faa1a94e25842cc660a68acee93c',
+  small: '1f7045f030c905b3f81dbbb9602bf3d45ead22bf7cd00173f7b0fda02f38d98f',
+  medium: 'f1564e373539049ff1bf79f0cc90cfdab63b0f2425762196b1d4bcec328d7f2d',
+  large: '07ee5de340c079bde2ab306b9057524b4cb4ce6eb7ba98e53b079b43a2f5cdd7',
 });
 
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)

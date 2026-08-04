@@ -192,6 +192,58 @@ export function assertCompatibleRuntimeIdentity(cwd = process.cwd()) {
   return { compatible: true, identity };
 }
 
+/** Stop inherited graphd before retrieval sync when overlap would exhaust the task budget. */
+export async function releaseGraphdBeforeRetrieval(cwd = process.cwd(), { force = true } = {}) {
+  return releaseGraphdBeforeObservation(cwd, { force });
+}
+
+async function waitForRuntimeDescendantDrain(cwd, { timeoutMs = 15_000 } = {}) {
+  if (process.platform !== 'linux') return [];
+  const deadline = Date.now() + timeoutMs;
+  let remaining = [];
+  while (Date.now() < deadline) {
+    await forceStopRuntimeOrphans(cwd);
+    const paths = runtimePaths(cwd);
+    const graphdPid = managedGraphdPid(paths);
+    if (graphdPid) {
+      try { await stopIncompatibleServer(paths, graphdPid); } catch {}
+    }
+    remaining = listRuntimeDescendantPids(cwd).filter((pid) => processIsRunning(pid));
+    if (!remaining.length) return remaining;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return remaining;
+}
+
+/** Full runtime teardown between bounded-topology CLI phases (observation → retrieval, etc.). */
+export async function releaseRuntimeBetweenPhases(cwd = process.cwd(), { timeoutMs = 15_000 } = {}) {
+  if (!runtimeBudgetFromEnvironment()) return { released: false, reason: 'unbounded' };
+  await releaseGraphdBeforeObservation(cwd, { force: true });
+  const lifecycle = await finalizeRuntimeCommand(cwd, { cleanupOrphans: true });
+  const remaining = await waitForRuntimeDescendantDrain(cwd, { timeoutMs });
+  const acceptable = new Set(['absent', 'unbounded', 'persist_graphd']);
+  if (lifecycle.graphd?.released === false && !acceptable.has(lifecycle.graphd.reason)) {
+    const error = new Error('Lamina runtime did not release before the next bounded phase.');
+    error.code = 'LAMINA_RUNTIME_PHASE_OVERLAP';
+    error.details = { lifecycle };
+    throw error;
+  }
+  if (remaining.length) {
+    const error = new Error('Lamina runtime descendants remain before the next bounded phase.');
+    error.code = 'LAMINA_RUNTIME_PHASE_OVERLAP';
+    error.details = {
+      remaining: remaining.map((pid) => ({ pid, command: readProcessCommand(pid) })),
+    };
+    throw error;
+  }
+  const graphd = lifecycle.graphd || { released: false, reason: 'absent' };
+  return {
+    released: graphd.released === true || graphd.reason === 'absent',
+    reason: graphd.reason || 'between_phases',
+    lifecycle,
+  };
+}
+
 /** Stop inherited graphd before observation when overlap would exhaust the task budget. */
 export async function releaseGraphdBeforeObservation(cwd = process.cwd(), { force = false } = {}) {
   if (!runtimeBudgetFromEnvironment()) return { released: false, reason: 'unbounded' };
@@ -237,23 +289,94 @@ export function shouldReleaseGraphdAfterCommand({
   return true;
 }
 
-/** Release graphd after a completed mutation command under bounded topology. */
+function managedGraphdPid(paths) {
+  try {
+    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    return processIsRunning(lock?.pid) ? lock.pid : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forcibly stop the managed graphd for this repository when graceful shutdown is too slow. */
+export async function forceStopManagedGraphd(cwd = process.cwd()) {
+  const paths = runtimePaths(cwd);
+  let pid = managedGraphdPid(paths);
+  if (pid || fs.existsSync(paths.lock)) {
+    try { await stopIncompatibleServer(paths, pid); } catch {}
+    pid = managedGraphdPid(paths) || pid;
+    if (pid && processIsRunning(pid)) {
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+      const deadline = Date.now() + 2_000;
+      while (Date.now() < deadline && processIsRunning(pid)) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+  }
+  for (const file of [paths.lock, graphSocketPath(paths)]) {
+    try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
+  }
+  return { pid: pid || null, released: !managedGraphdPid(paths) };
+}
+
+/** Wait until graphd lock/socket are absent and no managed graphd pid remains. */
+export async function waitForGraphdFullyReleased(cwd = process.cwd(), { timeoutMs = 30_000 } = {}) {
+  const paths = runtimePaths(cwd);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pid = managedGraphdPid(paths);
+    if (pid) {
+      try { await stopIncompatibleServer(paths, pid); } catch {}
+    }
+    if (await waitForGraphdRelease(paths, pid, Math.min(2_000, deadline - Date.now()))) {
+      return { released: true };
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  await forceStopManagedGraphd(cwd);
+  if (!managedGraphdPid(paths)) return { released: true, forced: true };
+  const error = new Error('graphd did not release before the next bounded phase.');
+  error.code = 'LAMINA_RUNTIME_PHASE_OVERLAP';
+  throw error;
+}
+
+async function waitForGraphdRelease(paths, pid, deadlineMs = 5_000) {
+  const deadline = Date.now() + deadlineMs;
+  while (Date.now() < deadline) {
+    const lockPresent = fs.existsSync(paths.lock);
+    const socketPresent = fs.existsSync(graphSocketPath(paths));
+    const running = pid ? processIsRunning(pid) : false;
+    if (!lockPresent && !socketPresent && !running) return true;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  return !fs.existsSync(paths.lock)
+    && !fs.existsSync(graphSocketPath(paths))
+    && (!pid || !processIsRunning(pid));
+}
+
+/** Release graphd after a completed command under bounded topology. */
 export async function releaseGraphdAfterCommand(cwd = process.cwd(), options = {}) {
   if (!shouldReleaseGraphdAfterCommand(options)) {
     return { released: false, reason: options.persistGraphd ? 'persist_graphd' : 'unbounded' };
   }
   const paths = runtimePaths(cwd);
+  const pid = managedGraphdPid(paths);
+  if (!pid && !fs.existsSync(paths.lock) && !fs.existsSync(graphSocketPath(paths))) {
+    return { released: false, reason: 'absent' };
+  }
   try {
-    await stopIncompatibleServer(paths);
-    const deadline = Date.now() + 2_000;
-    while (Date.now() < deadline && fs.existsSync(paths.lock)) {
-      await new Promise((resolve) => setTimeout(resolve, 25));
+    await stopIncompatibleServer(paths, pid);
+    if (await waitForGraphdRelease(paths, pid)) {
+      return { released: true, reason: 'post_command' };
     }
-    return { released: true, reason: 'post_command' };
+    return {
+      released: false,
+      reason: 'stop_incomplete',
+      error: { code: 'LAMINA_INTERNAL', message: `graphd ${pid || 'unknown'} did not release before sample isolation` },
+    };
   } catch (error) {
-    let lock = null;
-    try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
-    if (!processIsRunning(lock?.pid)) {
+    const lockPid = managedGraphdPid(paths);
+    if (!lockPid) {
       for (const file of [paths.lock, graphSocketPath(paths)]) {
         try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
       }
@@ -326,13 +449,12 @@ export async function assertNoRuntimeOrphans(cwd = process.cwd(), options = {}) 
 
 export async function forceStopRuntimeOrphans(cwd = process.cwd(), options = {}) {
   const paths = runtimePaths(cwd);
-  let graphdPid = null;
-  try {
-    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-    if (processIsRunning(lock?.pid)) graphdPid = lock.pid;
-  } catch {}
-  const pids = listRuntimeDescendantPids(cwd, options)
-    .filter((pid) => processIsRunning(pid) && pid !== graphdPid);
+  const graphdPid = managedGraphdPid(paths);
+  const preset = Array.isArray(options.presetPids) ? options.presetPids : [];
+  const pids = [...new Set([
+    ...preset,
+    ...listRuntimeDescendantPids(cwd, options),
+  ])].filter((pid) => processIsRunning(pid) && pid !== graphdPid);
   for (const pid of pids) {
     try { process.kill(pid, 'SIGTERM'); } catch {}
   }
@@ -389,11 +511,20 @@ export function disposeCommandCancellation(token) {
 export async function finalizeRuntimeCommand(cwd, {
   persistGraphd = false,
   cleanupOrphans = true,
+  orphanDrainMs = 5_000,
 } = {}) {
   const results = {};
+  const paths = runtimePaths(cwd);
+  const graphdPid = managedGraphdPid(paths);
+  const presetOrphans = cleanupOrphans && process.platform === 'linux'
+    ? listRuntimeDescendantPids(cwd)
+      .filter((pid) => processIsRunning(pid) && pid !== graphdPid)
+    : [];
   results.graphd = await releaseGraphdAfterCommand(cwd, { persistGraphd });
   if (cleanupOrphans && process.platform === 'linux') {
-    results.orphans = await forceStopRuntimeOrphans(cwd);
+    results.orphans = await forceStopRuntimeOrphans(cwd, { presetPids: presetOrphans });
+    const remaining = await waitForRuntimeDescendantDrain(cwd, { timeoutMs: orphanDrainMs });
+    results.orphan_drain = { remaining: remaining.length };
   }
   if (cleanupOrphans && process.platform === 'linux') {
     results.orphan_check = await assertNoRuntimeOrphans(cwd).catch((error) => ({

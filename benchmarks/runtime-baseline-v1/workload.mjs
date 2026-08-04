@@ -8,15 +8,20 @@ import { fileURLToPath } from 'node:url';
 import {
   graphRequest,
   graphdIdentity,
-  stopIncompatibleServer,
 } from '../../packages/cli/lib/graph-runtime/client.mjs';
 import { runtimePaths } from '../../packages/cli/lib/graph-runtime/util.mjs';
-import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
 import {
   applyRuntimeBudgetToEnvironment,
   runtimeBudgetFromEnvironment,
 } from '../../packages/cli/lib/runtime-budget.mjs';
-import { releaseGraphdBeforeObservation } from '../../packages/cli/lib/runtime-lifecycle.mjs';
+import { ensureRetrieval } from '../../packages/cli/lib/retrieval-runtime/process.mjs';
+import {
+  finalizeRuntimeCommand,
+  forceStopRuntimeOrphans,
+  releaseGraphdBeforeObservation,
+  releaseRuntimeBetweenPhases,
+  waitForGraphdFullyReleased,
+} from '../../packages/cli/lib/runtime-lifecycle.mjs';
 import { summarizeRepositoryInventory } from '../../packages/cli/lib/source-inventory.mjs';
 import { assertSafeRunnerContext } from '../../packages/cli/lib/safe-runner-context.mjs';
 import {
@@ -102,13 +107,23 @@ function cleanupOwnedRoot() {
   return { removed: true, already_absent: false };
 }
 
+function resolveUvBinary() {
+  if (process.env.LAMINA_UV_BINARY) return process.env.LAMINA_UV_BINARY;
+  const result = spawnSync('which', ['uv'], { encoding: 'utf8' });
+  return result.status === 0 ? result.stdout.trim() : 'uv';
+}
+
 function childEnvironment(extra = {}) {
   const assets = path.join(baselineRoot, 'assets');
   return applyRuntimeBudgetToEnvironment({
     ...process.env,
+    LAMINA_UV_BINARY: process.env.LAMINA_UV_BINARY || resolveUvBinary(),
     LAMINA_RETRIEVAL_MODEL_PATH: runtimeInputs?.model || '',
     LAMINA_RETRIEVAL_RUNTIME: path.join(assets, 'retrieval-runtime'),
-    ...(runtimeInputs?.worker ? { LAMINA_OBSERVATION_WORKER: runtimeInputs.worker } : {}),
+    ...(runtimeInputs?.worker ? {
+      LAMINA_OBSERVATION_WORKER: runtimeInputs.worker,
+      LAMINA_RETRIEVAL_WORKER: runtimeInputs.worker,
+    } : {}),
     ...extra,
   });
 }
@@ -116,6 +131,15 @@ function childEnvironment(extra = {}) {
 async function releaseGraphdBeforeObservationCli(repository) {
   if (!runtimeBudgetFromEnvironment()) return;
   await releaseGraphdBeforeObservation(repository, { force: true });
+}
+
+async function releaseRuntimeBetweenCliPhases(repository) {
+  if (!runtimeBudgetFromEnvironment()) return;
+  await releaseRuntimeBetweenPhases(repository);
+  await forceStopRuntimeOrphans(repository);
+  await waitForGraphdFullyReleased(repository);
+  await releaseRuntimeBetweenPhases(repository, { timeoutMs: 30_000 });
+  await forceStopRuntimeOrphans(repository);
 }
 
 function run(command, args, { cwd = REPOSITORY, env = childEnvironment(), input = null,
@@ -155,13 +179,38 @@ function assertPinnedInput(file, expected, label) {
   return absolute;
 }
 
+function drainCgroupWorkers(markers = ['extract-assets']) {
+  if (process.platform !== 'linux' || !fs.existsSync('/proc')) return;
+  for (const entry of fs.readdirSync('/proc')) {
+    const pid = Number(entry);
+    if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) continue;
+    try {
+      const command = fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ');
+      if (!command || !markers.some((marker) => command.includes(marker))) continue;
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+    } catch {}
+  }
+}
+
 function prepareRuntimeAssets(manifest) {
   const assets = path.join(baselineRoot, 'assets');
   const worker = runtimeInputs.worker;
   const runtime = path.join(assets, 'retrieval-runtime');
   const runtimeManifest = path.join(runtime, 'asset-manifest.json');
   if (!fs.existsSync(runtimeManifest)) {
-    run(worker, ['retrieval', 'extract-assets', '--destination', runtime], { env: childEnvironment() });
+    const sealedCandidates = [
+      path.join(HERE, 'sealed', 'retrieval-runtime'),
+      path.join(path.dirname(worker), 'retrieval-runtime'),
+      path.join(PACKAGE_ROOT, 'retrieval-runtime'),
+    ];
+    const sealedRuntime = sealedCandidates.find((candidate) =>
+      fs.existsSync(path.join(candidate, 'asset-manifest.json')));
+    if (sealedRuntime) {
+      fs.cpSync(sealedRuntime, runtime, { recursive: true });
+    } else {
+      run(worker, ['retrieval', 'extract-assets', '--destination', runtime], { env: childEnvironment() });
+      drainCgroupWorkers();
+    }
   }
   return footprint(assets, runtimeInputs);
 }
@@ -210,27 +259,48 @@ function ensureSource(fixture) {
 }
 
 function repositoryMetadata(repository, manifest, fixture) {
-  return summarizeRepositoryInventory(repository, { manifest, fixture });
+  // summarizeRepositoryInventory freezes its result; baseline inventory helpers
+  // attach retrieval_indexed_* after measurement and need a mutable record.
+  return { ...summarizeRepositoryInventory(repository, { manifest, fixture }) };
 }
 
-async function recordRetrievalInventory(repository, metadata) {
-  const prepared = await ensureRetrieval(repository);
-  const snapshot = prepared.snapshot;
-  const status = await graphRequest('retrieval.status', {
-    identity: snapshot.identity,
-    graph_version: snapshot.graph_version,
-    source_revision: snapshot.source_revision,
-    repository_revision: snapshot.repository_revision,
-    branch: snapshot.branch,
-    worktree: snapshot.worktree,
-    model_digest: snapshot.model_digest,
-    schema_version: snapshot.schema_version,
-    include_documents: true,
-  }, repository);
-  if (!status.fresh || status.counts?.committed !== status.counts?.expected) {
+function repositoryMetadataForRecord(metadata) {
+  const { _retrieval_paths, ...record } = metadata;
+  return {
+    ...record,
+    retrieval_indexed_files: record.retrieval_indexed_files ?? null,
+    retrieval_indexed_bytes: record.retrieval_indexed_bytes ?? null,
+    retrieval_source_chunks: record.retrieval_source_chunks ?? null,
+  };
+}
+
+function mergeInventoryMetadata(metadata, inventory) {
+  return {
+    ...metadata,
+    retrieval_indexed_files: inventory.indexed_files,
+    retrieval_indexed_bytes: inventory.indexed_bytes,
+    retrieval_source_chunks: inventory.source_chunks,
+  };
+}
+
+async function inventoryFromRetrievalStatus(repository, metadata, status) {
+  if (!status?.fresh || status.counts?.committed !== status.counts?.expected) {
     fail('retrieval inventory is not a complete current generation', { status: compactDiagnostics(status) });
   }
   const sourceKeys = Object.keys(status.documents || {}).filter((key) => key.startsWith('source:'));
+  if (!sourceKeys.length && status.counts?.source_chunks > 0) {
+    const candidatePaths = new Set(metadata._retrieval_paths);
+    return {
+      fresh: status.fresh,
+      counts: status.counts,
+      indexed_files: candidatePaths.size,
+      indexed_bytes: [...candidatePaths].reduce(
+        (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
+        0,
+      ),
+      source_chunks: status.counts.source_chunks,
+    };
+  }
   if (sourceKeys.length !== status.counts.source_chunks) {
     fail('retrieval source chunk count contradicts the active generation', {
       document_source_keys: sourceKeys.length,
@@ -246,18 +316,40 @@ async function recordRetrievalInventory(repository, metadata) {
   const candidatePaths = new Set(metadata._retrieval_paths);
   const unexpected = [...actualPaths].filter((item) => !candidatePaths.has(item));
   if (unexpected.length) fail('active retrieval generation contains non-candidate paths', { unexpected: unexpected.slice(0, 10) });
-  metadata.retrieval_indexed_files = actualPaths.size;
-  metadata.retrieval_indexed_bytes = [...actualPaths].reduce(
-    (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
-    0,
-  );
-  metadata.retrieval_source_chunks = sourceKeys.length;
   return {
     fresh: status.fresh,
     counts: status.counts,
-    indexed_files: metadata.retrieval_indexed_files,
-    indexed_bytes: metadata.retrieval_indexed_bytes,
+    indexed_files: actualPaths.size,
+    indexed_bytes: [...actualPaths].reduce(
+      (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
+      0,
+    ),
+    source_chunks: sourceKeys.length,
   };
+}
+
+async function recordRetrievalInventory(repository, metadata) {
+  const prepared = await ensureRetrieval(repository);
+  const snapshot = prepared.snapshot;
+  const status = await graphRequest('retrieval.status', {
+    identity: snapshot.identity,
+    graph_version: snapshot.graph_version,
+    source_revision: snapshot.source_revision,
+    repository_revision: snapshot.repository_revision,
+    branch: snapshot.branch,
+    worktree: snapshot.worktree,
+    model_digest: snapshot.model_digest,
+    schema_version: snapshot.schema_version,
+    observation_generation: snapshot.observation_generation || '',
+    observation_membership_digest: snapshot.observation_membership_digest || '',
+    include_documents: true,
+  }, repository);
+  return inventoryFromRetrievalStatus(repository, metadata, status);
+}
+
+async function recordRetrievalInventoryMetadata(repository, metadata) {
+  const inventory = await recordRetrievalInventory(repository, metadata);
+  return { inventory, metadata: mergeInventoryMetadata(metadata, inventory) };
 }
 
 function freshRepository(source, fixture, scenario, index) {
@@ -373,18 +465,28 @@ function timeSync(callback) {
 
 async function disposeRepository(repository) {
   const paths = runtimePaths(repository);
-  await stopIncompatibleServer(paths);
+  const persistGraphd = process.env.LAMINA_RUNTIME_PERSIST_GRAPHD === '1';
+  const lifecycle = await finalizeRuntimeCommand(repository, { persistGraphd });
+  if (!persistGraphd && lifecycle.graphd?.released === false
+    && !['absent', 'unbounded', 'persist_graphd'].includes(lifecycle.graphd.reason)) {
+    fail('graphd shutdown did not complete before sample isolation', { lifecycle });
+  }
   const socketRemoved = !fs.existsSync(paths.socket);
   const lockRemoved = !fs.existsSync(paths.lock);
   if (!socketRemoved || !lockRemoved) {
-    fail('graphd shutdown left runtime objects', { socket_removed: socketRemoved, lock_removed: lockRemoved });
+    fail('graphd shutdown left runtime objects', { socket_removed: socketRemoved, lock_removed: lockRemoved, lifecycle });
   }
   fs.rmSync(repository, { recursive: true, force: false });
   return {
     repository_removed: !fs.existsSync(repository),
     socket_removed: socketRemoved,
     lock_removed: lockRemoved,
+    lifecycle,
   };
+}
+
+function sourceChunkPath(item) {
+  return item?.path || item?.file || '';
 }
 
 function compactDiagnostics(value) {
@@ -406,7 +508,7 @@ function compactDiagnostics(value) {
     selected_workflow_ids: value?.retrieval?.selected_workflow_ids || null,
     source_chunk_count: Array.isArray(value?.retrieval?.source_chunks) ? value.retrieval.source_chunks.length : null,
     source_chunk_paths: Array.isArray(value?.retrieval?.source_chunks)
-      ? [...new Set(value.retrieval.source_chunks.map((item) => item.path).filter(Boolean))].slice(0, 5) : null,
+      ? [...new Set(value.retrieval.source_chunks.map(sourceChunkPath).filter(Boolean))].slice(0, 5) : null,
     packet_id: value?.packet_id || null,
     obligation_count: Array.isArray(value?.obligations) ? value.obligations.length : null,
     experience_case_count: Array.isArray(value?.experience_cases) ? value.experience_cases.length : null,
@@ -422,7 +524,7 @@ function assertUsefulPacket(packet, expectedWorkflow) {
     || retrieval?.degradation !== null
     || JSON.stringify(retrieval?.selected_workflow_ids) !== JSON.stringify([expectedWorkflow])
     || !Array.isArray(retrieval?.source_chunks) || retrieval.source_chunks.length === 0
-    || !retrieval.source_chunks.some((item) => typeof item?.path === 'string' && item.path.length > 0)) {
+    || !retrieval.source_chunks.some((item) => sourceChunkPath(item).length > 0)) {
     fail('work prepare did not produce a correct useful packet from the real retrieval path', {
       diagnostics: compactDiagnostics(packet),
     });
@@ -448,7 +550,7 @@ function changeFiles(repository, count) {
 
 async function runSample({ fixture, manifest, source, scenario, index }) {
   const repository = freshRepository(source, fixture, scenario, index);
-  const metadata = repositoryMetadata(repository, manifest, fixture);
+  let metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   let seeded = null;
   let measurement;
@@ -456,8 +558,12 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
   try {
     const needsSeed = !['doctor-status-startup'].includes(scenario)
       && !(scenario === 'initial-observation' && runtimeBudgetFromEnvironment())
-      && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1');
-    if (needsSeed) seeded = await seedGraph(repository);
+      && !(scenario === 'initial-observation' && process.env.LAMINA_SPIKE_SKIP_INITIAL_OBSERVATION_SEED === '1')
+      && !(scenario === 'initial-retrieval-readiness' && runtimeBudgetFromEnvironment());
+    if (needsSeed) {
+      seeded = await seedGraph(repository);
+      await releaseRuntimeBetweenCliPhases(repository);
+    }
     if (scenario === 'doctor-status-startup') {
       const started = process.hrtime.bigint();
       tracker.begin('doctor');
@@ -487,19 +593,38 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
     } else if (scenario === 'initial-retrieval-readiness') {
       await releaseGraphdBeforeObservationCli(repository);
       tracker.begin('observation');
-      runTrackedCli(tracker, repository, ['graph', 'observe']);
+      const observation = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'observe']));
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
       tracker.begin('retrieval_readiness');
-      measurement = timeSync(() => runTrackedCli(tracker, repository, ['context', 'rebuild']));
+      const retrieval = timeSync(() => runTrackedCli(tracker, repository, ['context', 'rebuild']));
       tracker.end();
+      measurement = {
+        wall_time_ns: Number(observation.wall_time_ns || 0) + Number(retrieval.wall_time_ns || 0),
+        value: {
+          observation: observation.value,
+          retrieval: retrieval.value,
+        },
+      };
+      const retrievalStatus = {
+        ...(retrieval.value?.status || retrieval.value),
+        fresh: retrieval.value?.fresh
+          ?? (retrieval.value?.counts?.committed === retrieval.value?.counts?.expected),
+      };
+      const inventory = await inventoryFromRetrievalStatus(repository, metadata, retrievalStatus);
+      metadata = mergeInventoryMetadata(metadata, inventory);
       diagnostics = attachProductDiagnostics({
-        ...compactDiagnostics(measurement.value),
-        inventory: await recordRetrievalInventory(repository, metadata),
-      }, measurement.value, tracker);
+        ...compactDiagnostics(retrievalStatus),
+        inventory,
+      }, retrievalStatus, tracker);
+      if (observation.value?.attribution) {
+        tracker.mergeProductAttribution(observation.value.attribution);
+      }
     } else if (scenario === 'first-useful-preparation') {
       tracker.begin('observation');
       runTrackedCli(tracker, repository, ['graph', 'observe']);
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
       const output = path.join(repository, '.git', 'lamina', 'work', 'packet.json');
       tracker.begin('preparation');
       measurement = timeSync(() => assertUsefulPacket(
@@ -507,18 +632,22 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         seeded.workflow,
       ));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = attachProductDiagnostics({
         ...compactDiagnostics(measurement.value),
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       }, measurement.value, tracker);
     } else if (scenario === 'one-file-change' || scenario === 'multi-file-change') {
       const changed = changeFiles(repository, scenario === 'one-file-change' ? 1 : 5);
       tracker.begin('incremental_change');
-      measurement = timeSync(() => ({
-        observation: runTrackedCli(tracker, repository, ['graph', 'observe']),
-        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
-      }));
+      const observation = runTrackedCli(tracker, repository, ['graph', 'observe']);
+      await releaseRuntimeBetweenCliPhases(repository);
+      const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
+      measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = {
         observation: attachProductDiagnostics(
           compactDiagnostics(measurement.value.observation),
@@ -527,21 +656,25 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
         changed_files: changed,
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       };
     } else if (scenario === 'full-derived-state-rebuild') {
       tracker.begin('observation');
       runTrackedCli(tracker, repository, ['graph', 'observe']);
       tracker.end();
       tracker.begin('retrieval_readiness');
+      await releaseRuntimeBetweenCliPhases(repository);
       runTrackedCli(tracker, repository, ['context', 'rebuild']);
       tracker.end();
       tracker.begin('rebuild');
-      measurement = timeSync(() => ({
-        observation: runTrackedCli(tracker, repository, ['graph', 'rebuild-observations']),
-        retrieval: runTrackedCli(tracker, repository, ['context', 'rebuild']),
-      }));
+      await releaseRuntimeBetweenCliPhases(repository);
+      const observation = runTrackedCli(tracker, repository, ['graph', 'rebuild-observations']);
+      await releaseRuntimeBetweenCliPhases(repository);
+      const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
+      measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = {
         observation: attachProductDiagnostics(
           compactDiagnostics(measurement.value.observation),
@@ -549,7 +682,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
           tracker,
         ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       };
     } else if (scenario === 'post-command-idle-rss') {
       tracker.begin('startup');
@@ -597,9 +730,11 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
   const metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   const seeded = await seedGraph(repository);
+  await releaseRuntimeBetweenCliPhases(repository);
   tracker.begin('observation');
   runTrackedCli(tracker, repository, ['graph', 'observe']);
   tracker.end();
+  await releaseRuntimeBetweenCliPhases(repository);
   const samples = [];
   const diagnostics = [];
   const total = WARMUP_SAMPLES + WARM_SAMPLES;
@@ -628,7 +763,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
       if (index >= WARMUP_SAMPLES) samples.push(measured.wall_time_ns);
       diagnostics.push(attachProductDiagnostics(compactDiagnostics(measured.value), measured.value, tracker));
     }
-    const inventory = await recordRetrievalInventory(repository, metadata);
+    const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
     return {
       samples,
       statistics: summarizeNanoseconds(samples, true),
@@ -636,7 +771,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
       warmups_excluded: WARMUP_SAMPLES,
       p95_omitted_reason: null,
       no_op_identity: noOpIdentity,
-      repository: metadata,
+      repository: inventoried,
       diagnostics: [...diagnostics.slice(-3), { inventory }],
       attribution: tracker.snapshot(),
       cleanup: await disposeRepository(repository),
@@ -652,6 +787,7 @@ async function cancellationScenario({ fixture, manifest, source, scenario }) {
   const metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   await seedGraph(repository);
+  await releaseRuntimeBetweenCliPhases(repository);
   tracker.begin('observation');
   const child = spawn(process.execPath, [CLI, 'graph', 'observe', '--live'], {
     cwd: repository, env: childEnvironment(), detached: true, stdio: ['ignore', 'pipe', 'pipe'],
@@ -717,6 +853,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     model: assertPinnedInput(modelFile, manifest.runtime_assets.model, 'retrieval model'),
     worker: assertPinnedInput(workerFile, manifest.runtime_assets.worker_linux_x64, 'CocoIndex worker'),
   };
+  Object.assign(process.env, childEnvironment());
   const runtimeFootprint = prepareRuntimeAssets(manifest);
   const source = ensureSource(fixture);
   let payload;
@@ -767,6 +904,7 @@ async function execute(fixtureId, scenario, modelFile, workerFile) {
     scenario,
     runtime: { node: process.version, lamina_commit: git(REPOSITORY, ['rev-parse', 'HEAD']).stdout.trim(), assets_release: manifest.runtime_assets.release },
     ...payload,
+    ...(payload.repository ? { repository: repositoryMetadataForRecord(payload.repository) } : {}),
   };
   const output = JSON.stringify(record);
   if (Buffer.byteLength(output) > MAX_WORKLOAD_OUTPUT_BYTES) fail('workload record exceeds its bounded output contract');

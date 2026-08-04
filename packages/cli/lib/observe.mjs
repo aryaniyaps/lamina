@@ -14,7 +14,7 @@ import {
   maxObservationAttempts,
   runtimeBudgetFromEnvironment,
 } from './runtime-budget.mjs';
-import { releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
+import { forceStopRuntimeOrphans, releaseGraphdBeforeObservation, runWithRuntimeLifecycle } from './runtime-lifecycle.mjs';
 import {
   OBSERVATION_IGNORE_PATTERNS,
   observationInventorySnapshot,
@@ -113,8 +113,15 @@ async function observationStatus(cwd, product, generation, timeout = 10_000) {
  * default backend is CocoIndex, shipped as a private native worker with the
  * standalone release. The Node backend remains an explicit development switch.
  */
-export async function runObservation({ cwd = process.cwd(), live = false, invalidate = false, discover = false } = {}) {
-  return runWithRuntimeLifecycle(cwd, async ({ cancellation } = {}) => {
+export async function runObservation({
+  cwd = process.cwd(),
+  live = false,
+  invalidate = false,
+  discover = false,
+  persistGraphd = false,
+  embedded = false,
+} = {}) {
+  const work = async ({ cancellation } = {}) => {
   const runtimeBudget = runtimeBudgetFromEnvironment();
   const backend = process.env.LAMINA_OBSERVATION_BACKEND || COCOINDEX_BACKEND;
   if (![COCOINDEX_BACKEND, NODE_BACKEND].includes(backend)) {
@@ -127,6 +134,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   const invalidation = invalidate
     ? await graphRequest('observation.invalidate', { product: paths.product }, cwd)
     : null;
+  if (!invalidation) await graphRequest('status', {}, cwd);
   let generation = fs.readFileSync(path.join(paths.cocoindex, 'target-generation'), 'utf8').trim();
   const extractorDigest = digest('extractors', ['lamina.source-file.v2']);
   const workerDiagnostics = [];
@@ -165,6 +173,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   };
 
   let workerCompleted = await runWorker(1);
+  if (runtimeBudget) await forceStopRuntimeOrphans(cwd);
   let observed = await observationStatus(cwd, paths.product, generation);
   let completion = observationCompletionChecks(observed, {
     generation,
@@ -196,6 +205,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
   if (!completion.complete && !live && workerDiagnostics.length < maxAttempts) {
     const retryCompleted = await runWorker(workerDiagnostics.length + 1);
     workerCompleted = retryCompleted;
+    if (runtimeBudget) await forceStopRuntimeOrphans(cwd);
     observed = await observationStatus(cwd, paths.product, generation);
     completion = observationCompletionChecks(observed, {
       generation,
@@ -288,5 +298,7 @@ export async function runObservation({ cwd = process.cwd(), live = false, invali
       }),
     } : undefined,
   };
-  }, { live, mutation: true });
+  };
+  if (embedded) return work();
+  return runWithRuntimeLifecycle(cwd, work, { live, mutation: true, persistGraphd });
 }

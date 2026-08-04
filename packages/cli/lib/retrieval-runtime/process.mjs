@@ -2,17 +2,22 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { graphRequest, ensureGraphd } from '../graph-runtime/client.mjs';
+import { graphRequest, ensureGraphd, restartGraphd, warmGraphd } from '../graph-runtime/client.mjs';
 import { graphSocketChildPath, repositoryContext, runtimePaths } from '../graph-runtime/util.mjs';
 import { RETRIEVAL_SCHEMA_VERSION } from './constants.mjs';
 import { verifyRetrievalModel, verifyRetrievalRuntimeAssets } from './assets.mjs';
 import { retrievalIdentity, workflowDocuments } from './documents.mjs';
-import { workerThreadEnvironment, retrievalBatchEnvironment } from '../runtime-budget.mjs';
+import { retrievalWorkerThreadEnvironment, retrievalBatchEnvironment, runtimeBudgetFromEnvironment } from '../runtime-budget.mjs';
 import {
   assertCompatibleRuntimeIdentity,
-  releaseGraphdBeforeObservation,
+  forceStopManagedGraphd,
+  forceStopRuntimeOrphans,
+  listRuntimeDescendantPids,
+  releaseGraphdBeforeRetrieval,
   runWithRuntimeLifecycle,
+  waitForGraphdFullyReleased,
 } from '../runtime-lifecycle.mjs';
+import { processIsRunning } from '../graph-runtime/util.mjs';
 import {
   generationStatePath as observationGenerationStatePath,
   readGenerationState as readObservationGenerationState,
@@ -47,6 +52,36 @@ function managedWorker() {
   }
 }
 
+let indexEmbedSupported = null;
+function workerSupportsIndexEmbed() {
+  if (indexEmbedSupported !== null) return indexEmbedSupported;
+  const worker = managedWorker();
+  // Packaged cocoindex-worker always ships index-embed. Probing `-h` still
+  // loads the PyInstaller/ONNX runtime (~40 TIDs) and races a live graphd
+  // under ADR-014 pids.max; treat the managed binary as capable without spawn.
+  if (worker) {
+    indexEmbedSupported = true;
+    return indexEmbedSupported;
+  }
+  if (process.env.LAMINA_STANDALONE === '1') {
+    indexEmbedSupported = false;
+    return indexEmbedSupported;
+  }
+  indexEmbedSupported = true;
+  return indexEmbedSupported;
+}
+
+function nprocCapPreloadPath() {
+  if (!runtimeBudgetFromEnvironment() || process.platform !== 'linux') return null;
+  const so = path.join(packageRoot, 'native', 'nproc-cap.so');
+  try {
+    fs.accessSync(so, fs.constants.R_OK);
+    return so;
+  } catch {
+    return null;
+  }
+}
+
 function workerInvocation(args, cwd) {
   const worker = managedWorker();
   if (worker) return { command: worker, args: ['retrieval', ...args] };
@@ -68,18 +103,22 @@ function workerInvocation(args, cwd) {
   };
 }
 
-function workerEnvironment(cwd, graphd, model) {
+function workerEnvironment(cwd, graphd, model, { embedOnly = false } = {}) {
   const paths = runtimePaths(cwd);
   const assets = process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER === 'deterministic'
     ? { tokenizer: null }
     : verifyRetrievalRuntimeAssets();
+  const nprocCap = nprocCapPreloadPath();
   return {
     ...process.env,
-    ...workerThreadEnvironment(),
+    ...retrievalWorkerThreadEnvironment(),
     ...retrievalBatchEnvironment(),
+    ...(nprocCap ? { LD_PRELOAD: nprocCap } : {}),
     LAMINA_SOURCE_ROOT: paths.root,
-    LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
-    LAMINA_GRAPHD_TOKEN: graphd.auth_token,
+    ...(embedOnly || !graphd ? {} : {
+      LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
+      LAMINA_GRAPHD_TOKEN: graphd.auth_token,
+    }),
     LAMINA_RETRIEVAL_MODEL_PATH: model.path || '',
     LAMINA_RETRIEVAL_MODEL_DIGEST: model.digest,
     LAMINA_RETRIEVAL_TOKENIZER_PATH: assets.tokenizer || '',
@@ -87,11 +126,11 @@ function workerEnvironment(cwd, graphd, model) {
   };
 }
 
-function runWorker(args, { cwd, input = null, graphd, model }) {
+function runWorker(args, { cwd, input = null, graphd, model, embedOnly = false }) {
   const invocation = workerInvocation(args, cwd);
   const result = spawnSync(invocation.command, invocation.args, {
     cwd: invocation.cwd || cwd,
-    env: workerEnvironment(cwd, graphd, model),
+    env: workerEnvironment(cwd, graphd, model, { embedOnly }),
     encoding: 'utf8',
     input,
     maxBuffer: 128 * 1024 * 1024,
@@ -168,13 +207,66 @@ function statusParams(snapshot, includeDocuments = false) {
   };
 }
 
+async function drainRuntimeDescendants(cwd, { timeoutMs = 5_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await forceStopRuntimeOrphans(cwd);
+    const remaining = listRuntimeDescendantPids(cwd).filter((pid) => processIsRunning(pid));
+    if (!remaining.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+/** Stop graphd and wait until its Ladybug thread pools are gone before spawning again. */
+async function replaceGraphdFresh(cwd) {
+  delete process.env.LAMINA_GRAPHD_REUSE_ONLY;
+  await forceStopManagedGraphd(cwd);
+  await waitForGraphdFullyReleased(cwd);
+  await drainRuntimeDescendants(cwd);
+  return ensureGraphd(cwd);
+}
+
+async function applyRetrievalIndexPlan(cwd, snapshot, indexPlan, {
+  graphdActive = false,
+  graphdStopped = false,
+} = {}) {
+  const budget = runtimeBudgetFromEnvironment();
+  const batchCap = budget?.retrieval_batch_size ?? 16;
+  const { upserts, members, deletes, generation, manifest } = indexPlan;
+  const spans = Math.max(upserts.length, members.length, 1);
+  if (budget) {
+    if (graphdStopped) await ensureGraphd(cwd);
+    else await replaceGraphdFresh(cwd);
+  } else if (!graphdActive) await restartGraphd(cwd);
+  for (let offset = 0; offset < spans; offset += batchCap) {
+    await graphRequest('retrieval.apply', {
+      identity: snapshot.identity,
+      generation,
+      manifest,
+      reset: offset === 0,
+      upserts: upserts.slice(offset, offset + batchCap),
+      members: members.slice(offset, offset + batchCap),
+      deletes: offset === 0 ? deletes : [],
+      complete: false,
+    }, cwd);
+  }
+  return graphRequest('retrieval.apply', {
+    identity: snapshot.identity,
+    generation,
+    manifest,
+    upserts: [],
+    members: [],
+    complete: true,
+  }, cwd);
+}
+
 export async function ensureRetrieval(
   cwd = process.cwd(),
-  { force = false, allowLexicalDegraded = false } = {},
+  { force = false, allowLexicalDegraded = false, reuseGraphd = false, persistGraphd = false, embedded = false } = {},
 ) {
-  return runWithRuntimeLifecycle(cwd, async () => {
+  const work = async () => {
   assertCompatibleRuntimeIdentity(cwd);
-  await releaseGraphdBeforeObservation(cwd);
+  if (!reuseGraphd) await releaseGraphdBeforeRetrieval(cwd);
   let model;
   try {
     model = verifyRetrievalModel();
@@ -191,18 +283,40 @@ export async function ensureRetrieval(
       failure: { code: error.code, message: error.message, details: error.details || {} },
     };
   }
-  const graphd = await ensureGraphd(cwd);
+  let graphd;
+  if (reuseGraphd) {
+    graphd = await warmGraphd(cwd);
+    process.env.LAMINA_GRAPHD_REUSE_ONLY = '1';
+  } else {
+    graphd = await ensureGraphd(cwd);
+  }
   const snapshot = await retrievalSnapshot(cwd, model);
-  let status = await graphRequest('retrieval.status', statusParams(snapshot, true), cwd);
+  const budget = runtimeBudgetFromEnvironment();
+  const useIndexEmbed = Boolean(budget && workerSupportsIndexEmbed());
+  if (budget && !useIndexEmbed) {
+    // Ladybug opens a process-lifetime worker pool per Database. Closing the JS
+    // handle does not reclaim those tasks; GraphEngine + RetrievalStore in one
+    // graphd process doubles the pool (~29 → ~51) and trips pids.max. Replace
+    // graphd after the GraphEngine snapshot so retrieval work runs alone, and
+    // wait for full release so old/new pools never overlap.
+    graphd = await replaceGraphdFresh(cwd);
+  }
+  let status;
   if (force) {
     await graphRequest('retrieval.invalidate', { identity: snapshot.identity }, cwd);
-    status = await graphRequest('retrieval.status', statusParams(snapshot, true), cwd);
+    status = { fresh: false, documents: {}, counts: {} };
+  } else {
+    status = await graphRequest(
+      'retrieval.status',
+      statusParams(snapshot, !useIndexEmbed),
+      cwd,
+    );
   }
   if (!status.fresh) {
     const paths = runtimePaths(cwd);
     fs.mkdirSync(paths.context, { recursive: true, mode: 0o700 });
     const retrievalStatePath = retrievalGenerationStatePath(paths.context);
-    const plan = planRetrievalSync({
+    const generationPlan = planRetrievalSync({
       repositoryRoot: cwd,
       identity: snapshot.identity,
       freshness: retrievalFreshnessContext(cwd, {
@@ -214,13 +328,43 @@ export async function ensureRetrieval(
       }),
       previous: readRetrievalGenerationState(retrievalStatePath),
     });
-    commitGenerationState(retrievalStatePath, plan, null, { phase: 'pending' });
+    commitGenerationState(retrievalStatePath, generationPlan, null, { phase: 'pending' });
+    let previousDocuments = status.documents || {};
+    if (!force && useIndexEmbed && !Object.keys(previousDocuments).length
+      && Number(status.counts?.committed || 0) > 0) {
+      const detailed = await graphRequest(
+        'retrieval.status',
+        statusParams(snapshot, true),
+        cwd,
+      );
+      previousDocuments = detailed.documents || {};
+    }
     const inputFile = path.join(paths.context, `retrieval-input-${process.pid}.json`);
-    fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: status.documents || {} })}\n`, {
+    fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: previousDocuments })}\n`, {
       mode: 0o600,
     });
     try {
-      runWorker(['index', '--input', inputFile], { cwd, graphd, model });
+      if (useIndexEmbed) {
+        // Release graphd before any cocoindex spawn so ONNX thread pools and
+        // Ladybug pools never share the pids.max budget.
+        try { await graphRequest('graph.retrieval.release', {}, cwd); } catch {}
+        await forceStopManagedGraphd(cwd);
+        await waitForGraphdFullyReleased(cwd);
+        await drainRuntimeDescendants(cwd);
+        const indexPlan = runWorker(['index-embed', '--input', inputFile], {
+          cwd, graphd: null, model, embedOnly: true,
+        });
+        await drainRuntimeDescendants(cwd);
+        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdStopped: true });
+      } else {
+        runWorker(['index', '--input', inputFile], { cwd, graphd, model });
+      }
+      if (runtimeBudgetFromEnvironment()) {
+        // Checkpoint via close before SIGKILL so membership/docs survive restart.
+        try { await graphRequest('graph.retrieval.release', {}, cwd); } catch {}
+        try { await graphRequest('graph.engine.release', {}, cwd); } catch {}
+        await forceStopRuntimeOrphans(cwd);
+      }
     } finally {
       fs.rmSync(inputFile, { force: true });
     }
@@ -230,15 +374,18 @@ export async function ensureRetrieval(
       error.code = 'LAMINA_RETRIEVAL_INCOMPLETE';
       throw error;
     }
-    activateGenerationPlan(plan, {
+    activateGenerationPlan(generationPlan, {
       index_digest: status.manifest?.index_digest,
       expected_count: status.counts.expected,
       committed_count: status.counts.committed,
     });
-    commitGenerationState(retrievalStatePath, plan, status.manifest, { phase: 'committed' });
+    commitGenerationState(retrievalStatePath, generationPlan, status.manifest, { phase: 'committed' });
   }
+  if (reuseGraphd) delete process.env.LAMINA_GRAPHD_REUSE_ONLY;
   return { snapshot, status, model, graphd };
-  }, { mutation: true });
+  };
+  if (embedded) return work();
+  return runWithRuntimeLifecycle(cwd, work, { mutation: true, persistGraphd });
 }
 
 export async function queryRetrieval(query, prepared, cwd = process.cwd()) {
@@ -274,6 +421,6 @@ export async function retrievalStatus(cwd = process.cwd()) {
   };
 }
 
-export async function rebuildRetrieval(cwd = process.cwd()) {
-  return ensureRetrieval(cwd, { force: true });
+export async function rebuildRetrieval(cwd = process.cwd(), options = {}) {
+  return ensureRetrieval(cwd, { force: true, ...options });
 }

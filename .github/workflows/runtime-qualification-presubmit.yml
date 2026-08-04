@@ -1,0 +1,42 @@
+name: Runtime qualification presubmit
+
+on:
+  pull_request:
+    paths:
+      - 'benchmarks/runtime-qualification-v1/**'
+      - 'benchmarks/runtime-baseline-v1/**'
+      - 'tests/runtime_qualification_test.mjs'
+      - 'tests/runtime_baseline_test.mjs'
+      - 'tests/semantic_oracle_*.mjs'
+      - 'tests/real_repository_oracle_*.mjs'
+      - 'tests/linux_packaging_contract_test.mjs'
+      - 'scripts/safe-runner/**'
+      - 'package.json'
+      - '.github/workflows/runtime-qualification-presubmit.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'benchmarks/runtime-qualification-v1/**'
+      - 'benchmarks/runtime-baseline-v1/**'
+      - 'tests/runtime_qualification_test.mjs'
+      - 'package.json'
+      - '.github/workflows/runtime-qualification-presubmit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          package-manager-cache: false
+      - run: corepack pnpm install --frozen-lockfile
+      - run: npm run test:runtime-qualification
+      - run: npm run test:runtime-qualification:presubmit
