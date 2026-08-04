@@ -102,8 +102,10 @@ try {
     branch: 'main',
     worktree: '/fixture',
     model_digest: 'model-one',
+    observation_generation: '',
+    observation_membership_digest: '',
     index_digest: digest(documents),
-    schema_version: 1,
+    schema_version: 2,
     expected_count: documents.length,
   };
   store.apply({

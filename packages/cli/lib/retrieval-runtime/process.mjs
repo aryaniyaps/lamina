@@ -7,12 +7,24 @@ import { graphSocketChildPath, repositoryContext, runtimePaths } from '../graph-
 import { RETRIEVAL_SCHEMA_VERSION } from './constants.mjs';
 import { verifyRetrievalModel, verifyRetrievalRuntimeAssets } from './assets.mjs';
 import { retrievalIdentity, workflowDocuments } from './documents.mjs';
-import { workerThreadEnvironment } from '../runtime-budget.mjs';
+import { workerThreadEnvironment, retrievalBatchEnvironment } from '../runtime-budget.mjs';
 import {
   assertCompatibleRuntimeIdentity,
   releaseGraphdBeforeObservation,
   runWithRuntimeLifecycle,
 } from '../runtime-lifecycle.mjs';
+import {
+  generationStatePath as observationGenerationStatePath,
+  readGenerationState as readObservationGenerationState,
+} from '../observation-generation.mjs';
+import {
+  activateGenerationPlan,
+  commitGenerationState,
+  generationStatePath as retrievalGenerationStatePath,
+  planRetrievalSync,
+  readGenerationState as readRetrievalGenerationState,
+  retrievalFreshnessContext,
+} from '../retrieval-generation.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -64,6 +76,7 @@ function workerEnvironment(cwd, graphd, model) {
   return {
     ...process.env,
     ...workerThreadEnvironment(),
+    ...retrievalBatchEnvironment(),
     LAMINA_SOURCE_ROOT: paths.root,
     LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
     LAMINA_GRAPHD_TOKEN: graphd.auth_token,
@@ -103,6 +116,7 @@ function runWorker(args, { cwd, input = null, graphd, model }) {
 
 async function retrievalSnapshot(cwd, model) {
   const repository = repositoryContext(cwd);
+  const paths = runtimePaths(cwd);
   const status = await graphRequest('status', {}, cwd);
   const workflowQuery = await graphRequest('graph.query', { at: 'HEAD', kind: 'workflow' }, cwd);
   const workflowIds = workflowQuery.resources.map((item) => item.id);
@@ -110,11 +124,27 @@ async function retrievalSnapshot(cwd, model) {
     ? await graphRequest('work.context', { workflows: workflowIds, request: '' }, cwd)
     : { graph_version: { id: status.graph_version }, workflows: [] };
   const identity = retrievalIdentity(cwd);
+  const observationState = readObservationGenerationState(observationGenerationStatePath(paths.cocoindex));
+  const freshness = retrievalFreshnessContext(cwd, {
+    graph_version: graph.graph_version?.id || status.graph_version,
+    model_digest: model.digest,
+    schema_version: RETRIEVAL_SCHEMA_VERSION,
+    observation_generation: observationState.generation || '',
+    observation_membership_digest: observationState.membership_digest || '',
+  });
+  const plan = planRetrievalSync({
+    repositoryRoot: cwd,
+    identity: identity.identity,
+    freshness,
+    previous: readRetrievalGenerationState(retrievalGenerationStatePath(paths.context)),
+  });
   return {
     schema: 'lamina.retrieval-snapshot/v1',
     ...identity,
-    graph_version: graph.graph_version?.id || status.graph_version,
-    source_revision: repository.source_revision,
+    ...freshness,
+    generation: plan.generation,
+    source_paths: plan.source_paths,
+    graph_version: freshness.graph_version,
     model_digest: model.digest,
     schema_version: RETRIEVAL_SCHEMA_VERSION,
     workflows: workflowDocuments(graph.workflows),
@@ -124,12 +154,15 @@ async function retrievalSnapshot(cwd, model) {
 function statusParams(snapshot, includeDocuments = false) {
   return {
     identity: snapshot.identity,
+    generation: snapshot.generation,
     graph_version: snapshot.graph_version,
     source_revision: snapshot.source_revision,
     repository_revision: snapshot.repository_revision,
     branch: snapshot.branch,
     worktree: snapshot.worktree,
     model_digest: snapshot.model_digest,
+    observation_generation: snapshot.observation_generation || '',
+    observation_membership_digest: snapshot.observation_membership_digest || '',
     schema_version: snapshot.schema_version,
     include_documents: includeDocuments,
   };
@@ -168,6 +201,20 @@ export async function ensureRetrieval(
   if (!status.fresh) {
     const paths = runtimePaths(cwd);
     fs.mkdirSync(paths.context, { recursive: true, mode: 0o700 });
+    const retrievalStatePath = retrievalGenerationStatePath(paths.context);
+    const plan = planRetrievalSync({
+      repositoryRoot: cwd,
+      identity: snapshot.identity,
+      freshness: retrievalFreshnessContext(cwd, {
+        graph_version: snapshot.graph_version,
+        model_digest: snapshot.model_digest,
+        schema_version: snapshot.schema_version,
+        observation_generation: snapshot.observation_generation || '',
+        observation_membership_digest: snapshot.observation_membership_digest || '',
+      }),
+      previous: readRetrievalGenerationState(retrievalStatePath),
+    });
+    commitGenerationState(retrievalStatePath, plan, null, { phase: 'pending' });
     const inputFile = path.join(paths.context, `retrieval-input-${process.pid}.json`);
     fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: status.documents || {} })}\n`, {
       mode: 0o600,
@@ -183,6 +230,12 @@ export async function ensureRetrieval(
       error.code = 'LAMINA_RETRIEVAL_INCOMPLETE';
       throw error;
     }
+    activateGenerationPlan(plan, {
+      index_digest: status.manifest?.index_digest,
+      expected_count: status.counts.expected,
+      committed_count: status.counts.committed,
+    });
+    commitGenerationState(retrievalStatePath, plan, status.manifest, { phase: 'committed' });
   }
   return { snapshot, status, model, graphd };
   }, { mutation: true });

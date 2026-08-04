@@ -93,7 +93,9 @@ try {
   assert.equal(failure.error.details.worker_diagnostics.length, 2);
   assert.ok(failure.error.details.worker_diagnostics.every((item) => item.ok === false));
   assert.equal(failure.error.details.daemon.protocol_version, 9);
-  daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
+  try {
+    daemonPid = parseDaemonLock(fs.readFileSync(runtimePaths(root).lock, 'utf8'))?.pid;
+  } catch {}
 } finally {
   if (daemonPid) {
     try { await stopIncompatibleServer(runtimePaths(root), daemonPid); } catch {}
