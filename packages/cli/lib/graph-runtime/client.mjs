@@ -9,6 +9,7 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
+import { graphdThreadEnvironment } from '../runtime-budget.mjs';
 import {
   bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
   recordManagedGraphdLockWithSupervisor, sealManagedGraphdWithSupervisor,
@@ -65,6 +66,7 @@ export function graphdEnvironmentFor(
   const environment = Object.fromEntries(entries
     .filter(([name]) => !isGraphdExecutionHook(name, platform)
       && (platform !== 'win32' || name.toLowerCase() !== 'path')));
+  Object.assign(environment, graphdThreadEnvironment(inheritedEnvironment));
   if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when
@@ -210,6 +212,38 @@ async function waitForServer(paths, token, child = null) {
   throw new Error(`graphd did not become ready at ${socketPath}`);
 }
 
+function removeGraphdRuntimeArtifacts(paths) {
+  const socketPath = graphSocketPath(paths);
+  for (const file of [paths.lock, socketPath]) {
+    try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
+  }
+}
+
+export async function recoverWedgedGraphd(paths, pid = null) {
+  let lock = null;
+  try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
+  const candidate = pid || lock?.pid || null;
+  if (!candidate) return false;
+  const socketPath = graphSocketPath(paths);
+  const socketMissing = process.platform !== 'win32' && !fs.existsSync(socketPath);
+  if (!processIsRunning(candidate)) {
+    removeGraphdRuntimeArtifacts(paths);
+    return true;
+  }
+  if (socketMissing) {
+    try { process.kill(candidate, 'SIGKILL'); } catch {}
+    const deadline = Date.now() + 2_000;
+    while (Date.now() < deadline && processIsRunning(candidate)) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    if (!processIsRunning(candidate)) {
+      removeGraphdRuntimeArtifacts(paths);
+      return true;
+    }
+  }
+  return false;
+}
+
 export async function stopIncompatibleServer(paths, reportedPid = null) {
   let lock = null;
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
@@ -225,7 +259,7 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
       }, 500);
     } catch {}
   }
-  let deadline = Date.now() + 2_000;
+  let deadline = Date.now() + 5_000;
   while (Date.now() < deadline && processIsRunning(pid)) {
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
@@ -244,6 +278,7 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
     }
   }
   if (processIsRunning(pid)) {
+    if (await recoverWedgedGraphd(paths, pid)) return;
     const error = new Error(`Unable to stop incompatible graphd process ${pid}.`);
     error.code = 'LAMINA_INTERNAL';
     throw error;
@@ -254,6 +289,7 @@ export async function ensureGraphd(cwd = process.cwd()) {
   const paths = runtimePaths(cwd);
   const socketPath = graphSocketPath(paths);
   const token = ensureAuthToken(paths);
+  await recoverWedgedGraphd(paths);
   let response = null;
   try {
     response = await exchange(socketPath, {
@@ -269,7 +305,28 @@ export async function ensureGraphd(cwd = process.cwd()) {
   let lock = null;
   try { lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8')); } catch {}
   if (response || processIsRunning(lock?.pid)) {
-    await stopIncompatibleServer(paths, response?.result?.pid);
+    const pid = response?.result?.pid || lock?.pid || null;
+    try {
+      await stopIncompatibleServer(paths, pid);
+    } catch (error) {
+      let revived = null;
+      try {
+        revived = await exchange(socketPath, {
+          id: 'revive-ping',
+          method: 'ping',
+          cwd,
+          auth: token,
+        }, 500);
+      } catch {}
+      if (revived?.ok && daemonCompatibility(revived.result).compatible) {
+        return { ...paths, auth_token: token, daemon: revived.result };
+      }
+      if (await recoverWedgedGraphd(paths, pid)) {
+        // Stale lock cleared; spawn a fresh graphd below.
+      } else {
+        throw error;
+      }
+    }
   }
   const debug = process.env.LAMINA_GRAPHD_DEBUG === '1';
   const logPath = path.join(paths.runtime_dir, 'graphd.log');

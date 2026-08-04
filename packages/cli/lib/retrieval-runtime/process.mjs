@@ -7,6 +7,12 @@ import { graphSocketChildPath, repositoryContext, runtimePaths } from '../graph-
 import { RETRIEVAL_SCHEMA_VERSION } from './constants.mjs';
 import { verifyRetrievalModel, verifyRetrievalRuntimeAssets } from './assets.mjs';
 import { retrievalIdentity, workflowDocuments } from './documents.mjs';
+import { workerThreadEnvironment } from '../runtime-budget.mjs';
+import {
+  assertCompatibleRuntimeIdentity,
+  releaseGraphdBeforeObservation,
+  runWithRuntimeLifecycle,
+} from '../runtime-lifecycle.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -57,6 +63,7 @@ function workerEnvironment(cwd, graphd, model) {
     : verifyRetrievalRuntimeAssets();
   return {
     ...process.env,
+    ...workerThreadEnvironment(),
     LAMINA_SOURCE_ROOT: paths.root,
     LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
     LAMINA_GRAPHD_TOKEN: graphd.auth_token,
@@ -132,6 +139,9 @@ export async function ensureRetrieval(
   cwd = process.cwd(),
   { force = false, allowLexicalDegraded = false } = {},
 ) {
+  return runWithRuntimeLifecycle(cwd, async () => {
+  assertCompatibleRuntimeIdentity(cwd);
+  await releaseGraphdBeforeObservation(cwd);
   let model;
   try {
     model = verifyRetrievalModel();
@@ -175,6 +185,7 @@ export async function ensureRetrieval(
     }
   }
   return { snapshot, status, model, graphd };
+  }, { mutation: true });
 }
 
 export async function queryRetrieval(query, prepared, cwd = process.cwd()) {
