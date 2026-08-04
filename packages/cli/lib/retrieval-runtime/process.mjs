@@ -56,9 +56,11 @@ let indexEmbedSupported = null;
 function workerSupportsIndexEmbed() {
   if (indexEmbedSupported !== null) return indexEmbedSupported;
   const worker = managedWorker();
+  // Packaged cocoindex-worker always ships index-embed. Probing `-h` still
+  // loads the PyInstaller/ONNX runtime (~40 TIDs) and races a live graphd
+  // under ADR-014 pids.max; treat the managed binary as capable without spawn.
   if (worker) {
-    const result = spawnSync(worker, ['retrieval', 'index-embed', '-h'], { encoding: 'utf8' });
-    indexEmbedSupported = result.status === 0;
+    indexEmbedSupported = true;
     return indexEmbedSupported;
   }
   if (process.env.LAMINA_STANDALONE === '1') {
@@ -67,6 +69,17 @@ function workerSupportsIndexEmbed() {
   }
   indexEmbedSupported = true;
   return indexEmbedSupported;
+}
+
+function nprocCapPreloadPath() {
+  if (!runtimeBudgetFromEnvironment() || process.platform !== 'linux') return null;
+  const so = path.join(packageRoot, 'native', 'nproc-cap.so');
+  try {
+    fs.accessSync(so, fs.constants.R_OK);
+    return so;
+  } catch {
+    return null;
+  }
 }
 
 function workerInvocation(args, cwd) {
@@ -95,10 +108,12 @@ function workerEnvironment(cwd, graphd, model, { embedOnly = false } = {}) {
   const assets = process.env.LAMINA_TEST_RETRIEVAL_EMBEDDER === 'deterministic'
     ? { tokenizer: null }
     : verifyRetrievalRuntimeAssets();
+  const nprocCap = nprocCapPreloadPath();
   return {
     ...process.env,
     ...retrievalWorkerThreadEnvironment(),
     ...retrievalBatchEnvironment(),
+    ...(nprocCap ? { LD_PRELOAD: nprocCap } : {}),
     LAMINA_SOURCE_ROOT: paths.root,
     ...(embedOnly || !graphd ? {} : {
       LAMINA_GRAPHD_ENDPOINT: graphSocketChildPath(paths),
@@ -211,13 +226,18 @@ async function replaceGraphdFresh(cwd) {
   return ensureGraphd(cwd);
 }
 
-async function applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdActive = false } = {}) {
+async function applyRetrievalIndexPlan(cwd, snapshot, indexPlan, {
+  graphdActive = false,
+  graphdStopped = false,
+} = {}) {
   const budget = runtimeBudgetFromEnvironment();
   const batchCap = budget?.retrieval_batch_size ?? 16;
   const { upserts, members, deletes, generation, manifest } = indexPlan;
   const spans = Math.max(upserts.length, members.length, 1);
-  if (budget) await replaceGraphdFresh(cwd);
-  else if (!graphdActive) await restartGraphd(cwd);
+  if (budget) {
+    if (graphdStopped) await ensureGraphd(cwd);
+    else await replaceGraphdFresh(cwd);
+  } else if (!graphdActive) await restartGraphd(cwd);
   for (let offset = 0; offset < spans; offset += batchCap) {
     await graphRequest('retrieval.apply', {
       identity: snapshot.identity,
@@ -272,7 +292,8 @@ export async function ensureRetrieval(
   }
   const snapshot = await retrievalSnapshot(cwd, model);
   const budget = runtimeBudgetFromEnvironment();
-  if (budget) {
+  const useIndexEmbed = Boolean(budget && workerSupportsIndexEmbed());
+  if (budget && !useIndexEmbed) {
     // Ladybug opens a process-lifetime worker pool per Database. Closing the JS
     // handle does not reclaim those tasks; GraphEngine + RetrievalStore in one
     // graphd process doubles the pool (~29 → ~51) and trips pids.max. Replace
@@ -280,10 +301,16 @@ export async function ensureRetrieval(
     // wait for full release so old/new pools never overlap.
     graphd = await replaceGraphdFresh(cwd);
   }
-  let status = await graphRequest('retrieval.status', statusParams(snapshot, true), cwd);
+  let status;
   if (force) {
     await graphRequest('retrieval.invalidate', { identity: snapshot.identity }, cwd);
-    status = await graphRequest('retrieval.status', statusParams(snapshot, true), cwd);
+    status = { fresh: false, documents: {}, counts: {} };
+  } else {
+    status = await graphRequest(
+      'retrieval.status',
+      statusParams(snapshot, !useIndexEmbed),
+      cwd,
+    );
   }
   if (!status.fresh) {
     const paths = runtimePaths(cwd);
@@ -302,12 +329,24 @@ export async function ensureRetrieval(
       previous: readRetrievalGenerationState(retrievalStatePath),
     });
     commitGenerationState(retrievalStatePath, generationPlan, null, { phase: 'pending' });
+    let previousDocuments = status.documents || {};
+    if (!force && useIndexEmbed && !Object.keys(previousDocuments).length
+      && Number(status.counts?.committed || 0) > 0) {
+      const detailed = await graphRequest(
+        'retrieval.status',
+        statusParams(snapshot, true),
+        cwd,
+      );
+      previousDocuments = detailed.documents || {};
+    }
     const inputFile = path.join(paths.context, `retrieval-input-${process.pid}.json`);
-    fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: status.documents || {} })}\n`, {
+    fs.writeFileSync(inputFile, `${JSON.stringify({ ...snapshot, previous: previousDocuments })}\n`, {
       mode: 0o600,
     });
     try {
-      if (budget && workerSupportsIndexEmbed()) {
+      if (useIndexEmbed) {
+        // Release graphd before any cocoindex spawn so ONNX thread pools and
+        // Ladybug pools never share the pids.max budget.
         try { await graphRequest('graph.retrieval.release', {}, cwd); } catch {}
         await forceStopManagedGraphd(cwd);
         await waitForGraphdFullyReleased(cwd);
@@ -316,11 +355,16 @@ export async function ensureRetrieval(
           cwd, graphd: null, model, embedOnly: true,
         });
         await drainRuntimeDescendants(cwd);
-        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan);
+        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdStopped: true });
       } else {
         runWorker(['index', '--input', inputFile], { cwd, graphd, model });
       }
-      if (runtimeBudgetFromEnvironment()) await forceStopRuntimeOrphans(cwd);
+      if (runtimeBudgetFromEnvironment()) {
+        // Checkpoint via close before SIGKILL so membership/docs survive restart.
+        try { await graphRequest('graph.retrieval.release', {}, cwd); } catch {}
+        try { await graphRequest('graph.engine.release', {}, cwd); } catch {}
+        await forceStopRuntimeOrphans(cwd);
+      }
     } finally {
       fs.rmSync(inputFile, { force: true });
     }

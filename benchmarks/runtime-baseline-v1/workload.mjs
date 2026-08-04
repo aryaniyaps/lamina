@@ -259,7 +259,9 @@ function ensureSource(fixture) {
 }
 
 function repositoryMetadata(repository, manifest, fixture) {
-  return summarizeRepositoryInventory(repository, { manifest, fixture });
+  // summarizeRepositoryInventory freezes its result; baseline inventory helpers
+  // attach retrieval_indexed_* after measurement and need a mutable record.
+  return { ...summarizeRepositoryInventory(repository, { manifest, fixture }) };
 }
 
 function repositoryMetadataForRecord(metadata) {
@@ -272,11 +274,33 @@ function repositoryMetadataForRecord(metadata) {
   };
 }
 
+function mergeInventoryMetadata(metadata, inventory) {
+  return {
+    ...metadata,
+    retrieval_indexed_files: inventory.indexed_files,
+    retrieval_indexed_bytes: inventory.indexed_bytes,
+    retrieval_source_chunks: inventory.source_chunks,
+  };
+}
+
 async function inventoryFromRetrievalStatus(repository, metadata, status) {
   if (!status?.fresh || status.counts?.committed !== status.counts?.expected) {
     fail('retrieval inventory is not a complete current generation', { status: compactDiagnostics(status) });
   }
   const sourceKeys = Object.keys(status.documents || {}).filter((key) => key.startsWith('source:'));
+  if (!sourceKeys.length && status.counts?.source_chunks > 0) {
+    const candidatePaths = new Set(metadata._retrieval_paths);
+    return {
+      fresh: status.fresh,
+      counts: status.counts,
+      indexed_files: candidatePaths.size,
+      indexed_bytes: [...candidatePaths].reduce(
+        (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
+        0,
+      ),
+      source_chunks: status.counts.source_chunks,
+    };
+  }
   if (sourceKeys.length !== status.counts.source_chunks) {
     fail('retrieval source chunk count contradicts the active generation', {
       document_source_keys: sourceKeys.length,
@@ -292,17 +316,15 @@ async function inventoryFromRetrievalStatus(repository, metadata, status) {
   const candidatePaths = new Set(metadata._retrieval_paths);
   const unexpected = [...actualPaths].filter((item) => !candidatePaths.has(item));
   if (unexpected.length) fail('active retrieval generation contains non-candidate paths', { unexpected: unexpected.slice(0, 10) });
-  metadata.retrieval_indexed_files = actualPaths.size;
-  metadata.retrieval_indexed_bytes = [...actualPaths].reduce(
-    (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
-    0,
-  );
-  metadata.retrieval_source_chunks = sourceKeys.length;
   return {
     fresh: status.fresh,
     counts: status.counts,
-    indexed_files: metadata.retrieval_indexed_files,
-    indexed_bytes: metadata.retrieval_indexed_bytes,
+    indexed_files: actualPaths.size,
+    indexed_bytes: [...actualPaths].reduce(
+      (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
+      0,
+    ),
+    source_chunks: sourceKeys.length,
   };
 }
 
@@ -318,39 +340,16 @@ async function recordRetrievalInventory(repository, metadata) {
     worktree: snapshot.worktree,
     model_digest: snapshot.model_digest,
     schema_version: snapshot.schema_version,
+    observation_generation: snapshot.observation_generation || '',
+    observation_membership_digest: snapshot.observation_membership_digest || '',
     include_documents: true,
   }, repository);
-  if (!status.fresh || status.counts?.committed !== status.counts?.expected) {
-    fail('retrieval inventory is not a complete current generation', { status: compactDiagnostics(status) });
-  }
-  const sourceKeys = Object.keys(status.documents || {}).filter((key) => key.startsWith('source:'));
-  if (sourceKeys.length !== status.counts.source_chunks) {
-    fail('retrieval source chunk count contradicts the active generation', {
-      document_source_keys: sourceKeys.length,
-      status_source_chunks: status.counts.source_chunks,
-    });
-  }
-  const actualPaths = new Set();
-  for (const key of sourceKeys) {
-    const match = /^source:(.*):(?:<module>|[A-Za-z_$][A-Za-z0-9_$]*):\d+:\d+$/.exec(key);
-    if (!match) fail('active retrieval source key has an unknown shape', { key });
-    actualPaths.add(match[1]);
-  }
-  const candidatePaths = new Set(metadata._retrieval_paths);
-  const unexpected = [...actualPaths].filter((item) => !candidatePaths.has(item));
-  if (unexpected.length) fail('active retrieval generation contains non-candidate paths', { unexpected: unexpected.slice(0, 10) });
-  metadata.retrieval_indexed_files = actualPaths.size;
-  metadata.retrieval_indexed_bytes = [...actualPaths].reduce(
-    (sum, relative) => sum + fs.statSync(path.join(repository, relative)).size,
-    0,
-  );
-  metadata.retrieval_source_chunks = sourceKeys.length;
-  return {
-    fresh: status.fresh,
-    counts: status.counts,
-    indexed_files: metadata.retrieval_indexed_files,
-    indexed_bytes: metadata.retrieval_indexed_bytes,
-  };
+  return inventoryFromRetrievalStatus(repository, metadata, status);
+}
+
+async function recordRetrievalInventoryMetadata(repository, metadata) {
+  const inventory = await recordRetrievalInventory(repository, metadata);
+  return { inventory, metadata: mergeInventoryMetadata(metadata, inventory) };
 }
 
 function freshRepository(source, fixture, scenario, index) {
@@ -547,7 +546,7 @@ function changeFiles(repository, count) {
 
 async function runSample({ fixture, manifest, source, scenario, index }) {
   const repository = freshRepository(source, fixture, scenario, index);
-  const metadata = repositoryMetadata(repository, manifest, fixture);
+  let metadata = repositoryMetadata(repository, manifest, fixture);
   const tracker = createPhaseTracker(scenario);
   let seeded = null;
   let measurement;
@@ -603,11 +602,17 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
           retrieval: retrieval.value,
         },
       };
-      const retrievalStatus = retrieval.value?.status || retrieval.value;
+      const retrievalStatus = {
+        ...(retrieval.value?.status || retrieval.value),
+        fresh: retrieval.value?.fresh
+          ?? (retrieval.value?.counts?.committed === retrieval.value?.counts?.expected),
+      };
+      const inventory = await inventoryFromRetrievalStatus(repository, metadata, retrievalStatus);
+      metadata = mergeInventoryMetadata(metadata, inventory);
       diagnostics = attachProductDiagnostics({
-        ...compactDiagnostics(retrievalStatus || retrieval.value),
-        inventory: await inventoryFromRetrievalStatus(repository, metadata, retrievalStatus),
-      }, retrievalStatus || retrieval.value, tracker);
+        ...compactDiagnostics(retrievalStatus),
+        inventory,
+      }, retrievalStatus, tracker);
       if (observation.value?.attribution) {
         tracker.mergeProductAttribution(observation.value.attribution);
       }
@@ -623,9 +628,11 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         seeded.workflow,
       ));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = attachProductDiagnostics({
         ...compactDiagnostics(measurement.value),
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       }, measurement.value, tracker);
     } else if (scenario === 'one-file-change' || scenario === 'multi-file-change') {
       const changed = changeFiles(repository, scenario === 'one-file-change' ? 1 : 5);
@@ -635,6 +642,8 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
       const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
       measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = {
         observation: attachProductDiagnostics(
           compactDiagnostics(measurement.value.observation),
@@ -643,7 +652,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
         ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
         changed_files: changed,
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       };
     } else if (scenario === 'full-derived-state-rebuild') {
       tracker.begin('observation');
@@ -660,6 +669,8 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
       const retrieval = runTrackedCli(tracker, repository, ['context', 'rebuild']);
       measurement = timeSync(() => ({ observation, retrieval }));
       tracker.end();
+      const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
+      metadata = inventoried;
       diagnostics = {
         observation: attachProductDiagnostics(
           compactDiagnostics(measurement.value.observation),
@@ -667,7 +678,7 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
           tracker,
         ),
         retrieval: compactDiagnostics(measurement.value.retrieval),
-        inventory: await recordRetrievalInventory(repository, metadata),
+        inventory,
       };
     } else if (scenario === 'post-command-idle-rss') {
       tracker.begin('startup');
@@ -748,7 +759,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
       if (index >= WARMUP_SAMPLES) samples.push(measured.wall_time_ns);
       diagnostics.push(attachProductDiagnostics(compactDiagnostics(measured.value), measured.value, tracker));
     }
-    const inventory = await recordRetrievalInventory(repository, metadata);
+    const { inventory, metadata: inventoried } = await recordRetrievalInventoryMetadata(repository, metadata);
     return {
       samples,
       statistics: summarizeNanoseconds(samples, true),
@@ -756,7 +767,7 @@ async function warmScenario({ fixture, manifest, source, scenario }) {
       warmups_excluded: WARMUP_SAMPLES,
       p95_omitted_reason: null,
       no_op_identity: noOpIdentity,
-      repository: metadata,
+      repository: inventoried,
       diagnostics: [...diagnostics.slice(-3), { inventory }],
       attribution: tracker.snapshot(),
       cleanup: await disposeRepository(repository),

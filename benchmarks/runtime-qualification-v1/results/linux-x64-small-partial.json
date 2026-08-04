@@ -1,10 +1,10 @@
 {
   "schema": "lamina.runtime-qualification-result/v1",
-  "generated_at": "2026-08-04T04:07:42.957Z",
+  "generated_at": "2026-08-04T05:18:58.416Z",
   "index": {
     "schema": "lamina.runtime-qualification-index/v1",
-    "generated_at": "2026-08-04T04:07:42.957Z",
-    "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+    "generated_at": "2026-08-04T05:18:58.416Z",
+    "lamina_commit": "4c82f37909141067c1f4677feee53c81fe59bbb5",
     "manifest_digest": "1f62d68e8fad47c48fb10a5ca20a124b8b96cf2932d8f58214e35f1249c4fb71",
     "baseline_manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
     "host": {
@@ -20,10 +20,10 @@
         "profile": "16gb",
         "fixture": "small",
         "platform": "linux-x64",
-        "baseline_output": "/home/aryan/lamina-qual-out7-1785815404",
+        "baseline_output": "/tmp/lamina-qual-pids-events",
         "index": {
           "schema": "lamina.runtime-baseline-index/v1",
-          "generated_at": "2026-08-04T03:52:28.647Z",
+          "generated_at": "2026-08-04T05:11:18.580Z",
           "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
           "host": {
             "platform": "linux",
@@ -37,7 +37,8 @@
             "small-footprint.json",
             "small-doctor-status-startup.json",
             "small-initial-observation.json",
-            "small-initial-retrieval-readiness.json"
+            "small-initial-retrieval-readiness.json",
+            "small-first-useful-preparation.json"
           ],
           "scenarios": [
             {
@@ -54,11 +55,11 @@
             },
             {
               "scenario": "initial-retrieval-readiness",
-              "status": "invalid"
+              "status": "valid"
             },
             {
               "scenario": "first-useful-preparation",
-              "status": "blocked_after_previous_failure"
+              "status": "invalid"
             },
             {
               "scenario": "warm-preparation",
@@ -95,7 +96,7 @@
         "scenario_results": [
           {
             "schema": "lamina.runtime-baseline-result/v1",
-            "generated_at": "2026-08-04T03:50:10.708Z",
+            "generated_at": "2026-08-04T04:50:25.415Z",
             "status": "valid",
             "fixture": {
               "id": "small",
@@ -122,7 +123,7 @@
               "scenario": "footprint",
               "runtime": {
                 "node": "v24.18.0",
-                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "lamina_commit": "4c82f37909141067c1f4677feee53c81fe59bbb5",
                 "assets_release": "cli-v0.3.5"
               },
               "samples": [],
@@ -166,8 +167,8 @@
               },
               "diagnostics": {
                 "source_cli": {
-                  "files": 41,
-                  "bytes": 77576145
+                  "files": 43,
+                  "bytes": 77595096
                 },
                 "prepared_assets": {
                   "files": 4,
@@ -250,14 +251,14 @@
                 "sample_index": 0,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 6498,
-                "peak_memory_bytes": 181624832,
-                "peak_pids": 14,
+                "duration_ms": 5746,
+                "peak_memory_bytes": 181608448,
+                "peak_pids": 16,
                 "peak_temporary_bytes": 15843328,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-footprint-promotion-small.json",
-                "raw_report_sha256": "e8b402de2cb881c3a0b7df4ef1f0bdea53d63bf4e979fc89f58c3a1af4691d0a"
+                "raw_report_sha256": "2a77b9d624365d0c12f8708e87d1dcbaf87a7e73101309b9877228d6f1cd1cbc"
               }
             ],
             "limitations": [
@@ -267,7 +268,7 @@
           },
           {
             "schema": "lamina.runtime-baseline-result/v1",
-            "generated_at": "2026-08-04T03:50:32.513Z",
+            "generated_at": "2026-08-04T04:50:47.640Z",
             "status": "valid",
             "fixture": {
               "id": "small",
@@ -294,16 +295,16 @@
               "scenario": "doctor-status-startup",
               "runtime": {
                 "node": "v24.18.0",
-                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "lamina_commit": "4c82f37909141067c1f4677feee53c81fe59bbb5",
                 "assets_release": "cli-v0.3.5"
               },
               "samples": [
                 {
                   "index": 0,
-                  "wall_time_ns": 994802020,
+                  "wall_time_ns": 1113001570,
                   "diagnostics": {
-                    "doctor_wall_time_ns": 348155082,
-                    "status_and_graphd_startup_wall_time_ns": 645520446,
+                    "doctor_wall_time_ns": 373144940,
+                    "status_and_graphd_startup_wall_time_ns": 738604833,
                     "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                   },
                   "attribution": {
@@ -327,9 +328,9 @@
                       "startup"
                     ],
                     "phase_time_ns": [
-                      348180533,
+                      373170080,
                       null,
-                      645532306,
+                      738622410,
                       null,
                       null,
                       null,
@@ -373,10 +374,10 @@
                 },
                 {
                   "index": 1,
-                  "wall_time_ns": 1105880854,
+                  "wall_time_ns": 1096035825,
                   "diagnostics": {
-                    "doctor_wall_time_ns": 368932562,
-                    "status_and_graphd_startup_wall_time_ns": 735512659,
+                    "doctor_wall_time_ns": 393451636,
+                    "status_and_graphd_startup_wall_time_ns": 700932601,
                     "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                   },
                   "attribution": {
@@ -400,9 +401,9 @@
                       "startup"
                     ],
                     "phase_time_ns": [
-                      368968358,
+                      393481822,
                       null,
-                      735530752,
+                      700950918,
                       null,
                       null,
                       null,
@@ -446,10 +447,10 @@
                 },
                 {
                   "index": 2,
-                  "wall_time_ns": 1142181619,
+                  "wall_time_ns": 992080105,
                   "diagnostics": {
-                    "doctor_wall_time_ns": 372693828,
-                    "status_and_graphd_startup_wall_time_ns": 767618566,
+                    "doctor_wall_time_ns": 348738642,
+                    "status_and_graphd_startup_wall_time_ns": 641903776,
                     "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                   },
                   "attribution": {
@@ -473,9 +474,9 @@
                       "startup"
                     ],
                     "phase_time_ns": [
-                      372730364,
+                      348777510,
                       null,
-                      767639472,
+                      641918399,
                       null,
                       null,
                       null,
@@ -520,8 +521,8 @@
               ],
               "statistics": {
                 "count": 3,
-                "median": 1105880854,
-                "maximum": 1142181619,
+                "median": 1096035825,
+                "maximum": 1113001570,
                 "p90": null,
                 "p95": null
               },
@@ -564,18 +565,18 @@
               },
               "diagnostics": [
                 {
-                  "doctor_wall_time_ns": 348155082,
-                  "status_and_graphd_startup_wall_time_ns": 645520446,
+                  "doctor_wall_time_ns": 373144940,
+                  "status_and_graphd_startup_wall_time_ns": 738604833,
                   "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                 },
                 {
-                  "doctor_wall_time_ns": 368932562,
-                  "status_and_graphd_startup_wall_time_ns": 735512659,
+                  "doctor_wall_time_ns": 393451636,
+                  "status_and_graphd_startup_wall_time_ns": 700932601,
                   "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                 },
                 {
-                  "doctor_wall_time_ns": 372693828,
-                  "status_and_graphd_startup_wall_time_ns": 767618566,
+                  "doctor_wall_time_ns": 348738642,
+                  "status_and_graphd_startup_wall_time_ns": 641903776,
                   "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
                 }
               ],
@@ -600,9 +601,9 @@
                   "startup"
                 ],
                 "phase_time_ns": [
-                  372730364,
+                  348777510,
                   null,
-                  767639472,
+                  641918399,
                   null,
                   null,
                   null,
@@ -635,14 +636,14 @@
                 "sample_index": 0,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 7028,
-                "peak_memory_bytes": 298520576,
-                "peak_pids": 41,
+                "duration_ms": 7762,
+                "peak_memory_bytes": 295878656,
+                "peak_pids": 31,
                 "peak_temporary_bytes": 15982592,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-doctor-status-startup-promotion-small.json",
-                "raw_report_sha256": "ad0a4587ead660429be0266e4c23a9260fc2ecf4e79eb0788f5d0cb3d5829a3c"
+                "raw_report_sha256": "10383b37990a88a51ad6f7d767d0ecf47b0818edb7d3a5304ad53824579136b0"
               },
               {
                 "tier": "small",
@@ -650,14 +651,14 @@
                 "sample_index": 1,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 7617,
-                "peak_memory_bytes": 299212800,
-                "peak_pids": 46,
+                "duration_ms": 7228,
+                "peak_memory_bytes": 296525824,
+                "peak_pids": 26,
                 "peak_temporary_bytes": 15982592,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-doctor-status-startup-measurement-1.json",
-                "raw_report_sha256": "e22e6b22a25599e2e45bf772e40aa22c6f29e79099b50109bf738ea6f6641f0c"
+                "raw_report_sha256": "7ecb9e085e28c6e0a0d5109952f4d121b687aeb8493f90a8e543aaadbeaafc4c"
               },
               {
                 "tier": "small",
@@ -665,14 +666,14 @@
                 "sample_index": 2,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 6989,
-                "peak_memory_bytes": 300273664,
-                "peak_pids": 47,
+                "duration_ms": 7109,
+                "peak_memory_bytes": 295563264,
+                "peak_pids": 26,
                 "peak_temporary_bytes": 15982592,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-doctor-status-startup-measurement-2.json",
-                "raw_report_sha256": "07d19ff0a99bedab20d9f0cde67a45193ce0b0b4dff3618a36c74db313c394b2"
+                "raw_report_sha256": "cca381e549e9e8619ec5425710e210bca58ab38acf42630863fbf173b40920b2"
               }
             ],
             "limitations": [
@@ -682,7 +683,7 @@
           },
           {
             "schema": "lamina.runtime-baseline-result/v1",
-            "generated_at": "2026-08-04T03:51:56.471Z",
+            "generated_at": "2026-08-04T04:52:08.611Z",
             "status": "valid",
             "fixture": {
               "id": "small",
@@ -709,18 +710,18 @@
               "scenario": "initial-observation",
               "runtime": {
                 "node": "v24.18.0",
-                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "lamina_commit": "4c82f37909141067c1f4677feee53c81fe59bbb5",
                 "assets_release": "cli-v0.3.5"
               },
               "samples": [
                 {
                   "index": 0,
-                  "wall_time_ns": 21916523883,
+                  "wall_time_ns": 21279183083,
                   "diagnostics": {
                     "schema": null,
                     "backend": "cocoindex",
                     "mode": "observe",
-                    "generation": "generation_ebae68d99c3c26d3a46715d1a4d70ef1",
+                    "generation": "generation_1caee09e2f91c8d7fa71e78c0eacb457",
                     "expected": 535,
                     "observed": 535,
                     "source_key_count": 535,
@@ -749,7 +750,7 @@
                       },
                       "worker_attempts": 1,
                       "graphd_pid": 112,
-                      "graphd_threads": 29,
+                      "graphd_threads": 8,
                       "observation_fan_out": 535,
                       "ipc_round_trips": 1,
                       "db_checkpoints": 535
@@ -778,7 +779,7 @@
                       null,
                       null,
                       null,
-                      21916578222,
+                      21279233232,
                       null,
                       null,
                       null,
@@ -821,12 +822,12 @@
                 },
                 {
                   "index": 1,
-                  "wall_time_ns": 22162133107,
+                  "wall_time_ns": 20102023340,
                   "diagnostics": {
                     "schema": null,
                     "backend": "cocoindex",
                     "mode": "observe",
-                    "generation": "generation_4c71db3f15aefc6e43074a1c80092420",
+                    "generation": "generation_0c89829a53ce630854369a9edd3ff96b",
                     "expected": 535,
                     "observed": 535,
                     "source_key_count": 535,
@@ -855,7 +856,7 @@
                       },
                       "worker_attempts": 1,
                       "graphd_pid": 112,
-                      "graphd_threads": 29,
+                      "graphd_threads": 8,
                       "observation_fan_out": 535,
                       "ipc_round_trips": 1,
                       "db_checkpoints": 535
@@ -884,7 +885,7 @@
                       null,
                       null,
                       null,
-                      22162182076,
+                      20102072012,
                       null,
                       null,
                       null,
@@ -927,12 +928,12 @@
                 },
                 {
                   "index": 2,
-                  "wall_time_ns": 22104868462,
+                  "wall_time_ns": 21202146945,
                   "diagnostics": {
                     "schema": null,
                     "backend": "cocoindex",
                     "mode": "observe",
-                    "generation": "generation_2b04962251140f9e42b0d57830b3b39b",
+                    "generation": "generation_17691e86e31cee945b64a9c48a65c795",
                     "expected": 535,
                     "observed": 535,
                     "source_key_count": 535,
@@ -961,7 +962,7 @@
                       },
                       "worker_attempts": 1,
                       "graphd_pid": 112,
-                      "graphd_threads": 29,
+                      "graphd_threads": 8,
                       "observation_fan_out": 535,
                       "ipc_round_trips": 1,
                       "db_checkpoints": 535
@@ -990,7 +991,7 @@
                       null,
                       null,
                       null,
-                      22104909136,
+                      21202196217,
                       null,
                       null,
                       null,
@@ -1034,8 +1035,8 @@
               ],
               "statistics": {
                 "count": 3,
-                "median": 22104868462,
-                "maximum": 22162133107,
+                "median": 21202146945,
+                "maximum": 21279183083,
                 "p90": null,
                 "p95": null
               },
@@ -1081,7 +1082,7 @@
                   "schema": null,
                   "backend": "cocoindex",
                   "mode": "observe",
-                  "generation": "generation_ebae68d99c3c26d3a46715d1a4d70ef1",
+                  "generation": "generation_1caee09e2f91c8d7fa71e78c0eacb457",
                   "expected": 535,
                   "observed": 535,
                   "source_key_count": 535,
@@ -1110,7 +1111,7 @@
                     },
                     "worker_attempts": 1,
                     "graphd_pid": 112,
-                    "graphd_threads": 29,
+                    "graphd_threads": 8,
                     "observation_fan_out": 535,
                     "ipc_round_trips": 1,
                     "db_checkpoints": 535
@@ -1120,7 +1121,7 @@
                   "schema": null,
                   "backend": "cocoindex",
                   "mode": "observe",
-                  "generation": "generation_4c71db3f15aefc6e43074a1c80092420",
+                  "generation": "generation_0c89829a53ce630854369a9edd3ff96b",
                   "expected": 535,
                   "observed": 535,
                   "source_key_count": 535,
@@ -1149,7 +1150,7 @@
                     },
                     "worker_attempts": 1,
                     "graphd_pid": 112,
-                    "graphd_threads": 29,
+                    "graphd_threads": 8,
                     "observation_fan_out": 535,
                     "ipc_round_trips": 1,
                     "db_checkpoints": 535
@@ -1159,7 +1160,7 @@
                   "schema": null,
                   "backend": "cocoindex",
                   "mode": "observe",
-                  "generation": "generation_2b04962251140f9e42b0d57830b3b39b",
+                  "generation": "generation_17691e86e31cee945b64a9c48a65c795",
                   "expected": 535,
                   "observed": 535,
                   "source_key_count": 535,
@@ -1188,7 +1189,7 @@
                     },
                     "worker_attempts": 1,
                     "graphd_pid": 112,
-                    "graphd_threads": 29,
+                    "graphd_threads": 8,
                     "observation_fan_out": 535,
                     "ipc_round_trips": 1,
                     "db_checkpoints": 535
@@ -1218,7 +1219,7 @@
                   null,
                   null,
                   null,
-                  22104909136,
+                  21202196217,
                   null,
                   null,
                   null,
@@ -1250,14 +1251,14 @@
                 "sample_index": 0,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 27720,
-                "peak_memory_bytes": 979341312,
-                "peak_pids": 54,
-                "peak_temporary_bytes": 250437632,
+                "duration_ms": 27375,
+                "peak_memory_bytes": 848134144,
+                "peak_pids": 34,
+                "peak_temporary_bytes": 250957824,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-initial-observation-promotion-small.json",
-                "raw_report_sha256": "39b5de40b991e6bbdeea5bb3c0135be33b01875d4d522963e34e90db229eff0d"
+                "raw_report_sha256": "863325b47e728f53eee94a3a04342014f13078ada8d8a09999a2930a0b1d17ab"
               },
               {
                 "tier": "small",
@@ -1265,14 +1266,14 @@
                 "sample_index": 1,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 28135,
-                "peak_memory_bytes": 973836288,
-                "peak_pids": 54,
-                "peak_temporary_bytes": 251002880,
+                "duration_ms": 26097,
+                "peak_memory_bytes": 847654912,
+                "peak_pids": 33,
+                "peak_temporary_bytes": 250372096,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-initial-observation-measurement-1.json",
-                "raw_report_sha256": "94e3ab887b5057128c50505928520da1731b4a0f47a41fe31cfae6f6caa3882b"
+                "raw_report_sha256": "84d7ae9c6d727fc3089548737a11402643033d8de7661a6eb2a469b303747922"
               },
               {
                 "tier": "small",
@@ -1280,14 +1281,14 @@
                 "sample_index": 2,
                 "outcome": "success",
                 "limit": null,
-                "duration_ms": 27937,
-                "peak_memory_bytes": 981540864,
-                "peak_pids": 54,
-                "peak_temporary_bytes": 250695680,
+                "duration_ms": 27394,
+                "peak_memory_bytes": 848269312,
+                "peak_pids": 33,
+                "peak_temporary_bytes": 250773504,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
                 "raw_report": "raw/small-initial-observation-measurement-2.json",
-                "raw_report_sha256": "d44d9c5ed84d30d3305bedfa681cf1afdcbbfb87db2a020f48e60fca5969318b"
+                "raw_report_sha256": "1d92c4a084ce0b39139364da054847aa37ddb17b3b4d0bca57e936462ed6bd80"
               }
             ],
             "limitations": [
@@ -1297,8 +1298,8 @@
           },
           {
             "schema": "lamina.runtime-baseline-result/v1",
-            "generated_at": "2026-08-04T03:52:28.646Z",
-            "status": "invalid",
+            "generated_at": "2026-08-04T05:06:33.264Z",
+            "status": "valid",
             "fixture": {
               "id": "small",
               "commit": "9506629ed003a561c6627735480cce4994244bb4",
@@ -1306,22 +1307,637 @@
             },
             "scenario": "initial-retrieval-readiness",
             "measured_tier": "small",
+            "workload": {
+              "schema": "lamina.runtime-baseline-workload/v1",
+              "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+              "fixture": {
+                "id": "small",
+                "name": "Bulletproof React",
+                "url": "https://github.com/alan2207/bulletproof-react.git",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "class": "small",
+                "languages": [
+                  "TypeScript",
+                  "React"
+                ],
+                "polyglot": false
+              },
+              "scenario": "initial-retrieval-readiness",
+              "runtime": {
+                "node": "v24.18.0",
+                "lamina_commit": "4c82f37909141067c1f4677feee53c81fe59bbb5",
+                "assets_release": "cli-v0.3.5"
+              },
+              "samples": [
+                {
+                  "index": 0,
+                  "wall_time_ns": 283514572113,
+                  "diagnostics": {
+                    "schema": "lamina.retrieval-status/v1",
+                    "backend": null,
+                    "mode": null,
+                    "generation": "retrieval_generation_bf2bf3a02d948ccb5458beed3bcbc661",
+                    "expected": 880,
+                    "observed": 880,
+                    "source_key_count": null,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "inventory": {
+                      "fresh": true,
+                      "counts": {
+                        "expected": 880,
+                        "committed": 880,
+                        "workflows": 0,
+                        "source_chunks": 880
+                      },
+                      "indexed_files": 467,
+                      "indexed_bytes": 693785,
+                      "source_chunks": 880
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "observation",
+                      "retrieval_readiness"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      21143727910,
+                      262370905619,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 1,
+                  "wall_time_ns": 284335813614,
+                  "diagnostics": {
+                    "schema": "lamina.retrieval-status/v1",
+                    "backend": null,
+                    "mode": null,
+                    "generation": "retrieval_generation_5697ab2bba333caabcae324beeac17a8",
+                    "expected": 880,
+                    "observed": 880,
+                    "source_key_count": null,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "inventory": {
+                      "fresh": true,
+                      "counts": {
+                        "expected": 880,
+                        "committed": 880,
+                        "workflows": 0,
+                        "source_chunks": 880
+                      },
+                      "indexed_files": 467,
+                      "indexed_bytes": 693785,
+                      "source_chunks": 880
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "observation",
+                      "retrieval_readiness"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      21536883769,
+                      262798986176,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 2,
+                  "wall_time_ns": 273615314674,
+                  "diagnostics": {
+                    "schema": "lamina.retrieval-status/v1",
+                    "backend": null,
+                    "mode": null,
+                    "generation": "retrieval_generation_a3666c6c0d80dca73cab924699574813",
+                    "expected": 880,
+                    "observed": 880,
+                    "source_key_count": null,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "inventory": {
+                      "fresh": true,
+                      "counts": {
+                        "expected": 880,
+                        "committed": 880,
+                        "workflows": 0,
+                        "source_chunks": 880
+                      },
+                      "indexed_files": 467,
+                      "indexed_bytes": 693785,
+                      "source_chunks": 880
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "observation",
+                      "retrieval_readiness"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      21575612889,
+                      252039773085,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                }
+              ],
+              "statistics": {
+                "count": 3,
+                "median": 283514572113,
+                "maximum": 284335813614,
+                "p90": null,
+                "p95": null
+              },
+              "classification": "cold",
+              "repository": {
+                "tracked_files": 535,
+                "tracked_bytes": 2640087,
+                "tracked_source_files": 438,
+                "tracked_source_bytes": 628504,
+                "tracked_source_loc": 20450,
+                "observation_indexed_files": 535,
+                "observation_indexed_bytes": 2640087,
+                "observation_paths_digest": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+                "retrieval_candidate_files": 467,
+                "retrieval_candidate_bytes": 693785,
+                "retrieval_paths_digest": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "exclusion_rules": [
+                  ".git",
+                  ".agents/skills",
+                  ".claude/skills",
+                  ".codex/skills",
+                  ".opencode/skills",
+                  ".lamina/runs",
+                  ".lamina/runtime",
+                  ".lamina/runtime-cli",
+                  "node_modules",
+                  "__pycache__",
+                  ".venv*",
+                  ".next",
+                  "dist",
+                  "build",
+                  "coverage",
+                  "benchmarks/results",
+                  "evals/fixtures/.vendor-tmp*"
+                ],
+                "retrieval_indexed_files": 467,
+                "retrieval_indexed_bytes": 693785,
+                "retrieval_source_chunks": 880
+              },
+              "diagnostics": [
+                {
+                  "schema": "lamina.retrieval-status/v1",
+                  "backend": null,
+                  "mode": null,
+                  "generation": "retrieval_generation_bf2bf3a02d948ccb5458beed3bcbc661",
+                  "expected": 880,
+                  "observed": 880,
+                  "source_key_count": null,
+                  "counts": {
+                    "expected": 880,
+                    "committed": 880,
+                    "workflows": 0,
+                    "source_chunks": 880
+                  },
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "inventory": {
+                    "fresh": true,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "indexed_files": 467,
+                    "indexed_bytes": 693785,
+                    "source_chunks": 880
+                  }
+                },
+                {
+                  "schema": "lamina.retrieval-status/v1",
+                  "backend": null,
+                  "mode": null,
+                  "generation": "retrieval_generation_5697ab2bba333caabcae324beeac17a8",
+                  "expected": 880,
+                  "observed": 880,
+                  "source_key_count": null,
+                  "counts": {
+                    "expected": 880,
+                    "committed": 880,
+                    "workflows": 0,
+                    "source_chunks": 880
+                  },
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "inventory": {
+                    "fresh": true,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "indexed_files": 467,
+                    "indexed_bytes": 693785,
+                    "source_chunks": 880
+                  }
+                },
+                {
+                  "schema": "lamina.retrieval-status/v1",
+                  "backend": null,
+                  "mode": null,
+                  "generation": "retrieval_generation_a3666c6c0d80dca73cab924699574813",
+                  "expected": 880,
+                  "observed": 880,
+                  "source_key_count": null,
+                  "counts": {
+                    "expected": 880,
+                    "committed": 880,
+                    "workflows": 0,
+                    "source_chunks": 880
+                  },
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "inventory": {
+                    "fresh": true,
+                    "counts": {
+                      "expected": 880,
+                      "committed": 880,
+                      "workflows": 0,
+                      "source_chunks": 880
+                    },
+                    "indexed_files": 467,
+                    "indexed_bytes": 693785,
+                    "source_chunks": 880
+                  }
+                }
+              ],
+              "attribution": {
+                "phase_order": [
+                  "doctor",
+                  "status",
+                  "startup",
+                  "observation",
+                  "retrieval_readiness",
+                  "preparation",
+                  "noop_sync",
+                  "incremental_change",
+                  "rebuild",
+                  "idle",
+                  "shutdown",
+                  "cleanup"
+                ],
+                "phase_ids": [
+                  "observation",
+                  "retrieval_readiness"
+                ],
+                "phase_time_ns": [
+                  null,
+                  null,
+                  null,
+                  21575612889,
+                  252039773085,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "subprocess_launches": {
+                  "graphd": 0,
+                  "cocoindex_worker": 1,
+                  "onnx_embedder": 0,
+                  "cli": 2,
+                  "other": 1
+                },
+                "descendant_peaks_by_phase": {}
+              },
+              "cleanup": {
+                "repository_removed": true,
+                "socket_removed": true,
+                "lock_removed": true
+              }
+            },
+            "runs": [
+              {
+                "tier": "small",
+                "purpose": "promotion-and-measurement",
+                "sample_index": 0,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 290921,
+                "peak_memory_bytes": 1181007872,
+                "peak_pids": 33,
+                "peak_temporary_bytes": 250736640,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-retrieval-readiness-promotion-small.json",
+                "raw_report_sha256": "52442a25d4d981a596db6db2884cb1943a2bfa21caf19aeb6f0509a00470b185"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 1,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 291367,
+                "peak_memory_bytes": 1198616576,
+                "peak_pids": 33,
+                "peak_temporary_bytes": 250474496,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-retrieval-readiness-measurement-1.json",
+                "raw_report_sha256": "9727863288f7f319772db1aca44072b94ba5181c250abd0a20e93439e9c11c8b"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 2,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 282259,
+                "peak_memory_bytes": 1235750912,
+                "peak_pids": 34,
+                "peak_temporary_bytes": 251297792,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-retrieval-readiness-measurement-2.json",
+                "raw_report_sha256": "a542a6de9ea181169366a52ad50d29b716128e7165b524ce7596f2d292b2b41b"
+              }
+            ],
+            "limitations": [
+              "Linux x64 baseline; other platforms are not represented.",
+              "CocoIndex worker and production retrieval model are checksum-pinned release assets; current JavaScript CLI and graphd come from the measured Lamina commit."
+            ]
+          },
+          {
+            "schema": "lamina.runtime-baseline-result/v1",
+            "generated_at": "2026-08-04T05:11:18.580Z",
+            "status": "invalid",
+            "fixture": {
+              "id": "small",
+              "commit": "9506629ed003a561c6627735480cce4994244bb4",
+              "url": "https://github.com/alan2207/bulletproof-react.git"
+            },
+            "scenario": "first-useful-preparation",
+            "measured_tier": "small",
             "workload": null,
             "runs": [
               {
                 "tier": "small",
                 "purpose": "promotion-and-measurement",
                 "sample_index": 0,
-                "outcome": "safety_limit_exceeded",
-                "limit": "pids",
-                "duration_ms": 32128,
-                "peak_memory_bytes": 979140608,
-                "peak_pids": 54,
-                "peak_temporary_bytes": 250384384,
+                "outcome": "command_failed",
+                "limit": null,
+                "duration_ms": 285267,
+                "peak_memory_bytes": 1193512960,
+                "peak_pids": 33,
+                "peak_temporary_bytes": 268914688,
                 "remaining_descendants": 0,
                 "remaining_managed_paths": 0,
-                "raw_report": "raw/small-initial-retrieval-readiness-promotion-small.json",
-                "raw_report_sha256": "f363d67ef7eb7867ada354b923e1ead94119fdf31717374ce564169920bc2d0c"
+                "raw_report": "raw/small-first-useful-preparation-promotion-small.json",
+                "raw_report_sha256": "20811eb14c194b16da0445b94f8b265c48cd4a474b9f2a721d4aba0aaad16012"
               }
             ],
             "limitations": [
@@ -1337,13 +1953,13 @@
       {
         "id": "semantic-oracle-v1",
         "command": "npm run test:semantic-oracle",
-        "exit_code": 0,
+        "exit_code": 1,
         "skipped": false
       },
       {
         "id": "real-repository-oracle-v1",
         "command": "npm run test:real-repository-oracle",
-        "exit_code": 0,
+        "exit_code": 1,
         "skipped": false
       },
       {
@@ -1363,7 +1979,7 @@
       {
         "id": "16gb.small.baseline_matrix",
         "blocking": true,
-        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+        "reason": "Baseline promotion incomplete: first-useful-preparation=invalid, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
       },
       {
         "id": "16gb.small.baseline_exit",
@@ -1397,14 +2013,14 @@
       {
         "id": "small.footprint.peak_rss",
         "pass": true,
-        "measured": 181624832,
+        "measured": 181608448,
         "threshold": 1610612736,
         "note": null
       },
       {
         "id": "small.footprint.no_pid_refusal",
         "pass": true,
-        "measured": 14,
+        "measured": 16,
         "threshold": 64,
         "note": "Measured peak tasks; refusal would have produced invalid status"
       },
@@ -1425,14 +2041,14 @@
       {
         "id": "small.doctor-status-startup.peak_rss",
         "pass": true,
-        "measured": 300273664,
+        "measured": 296525824,
         "threshold": 1610612736,
         "note": null
       },
       {
         "id": "small.doctor-status-startup.no_pid_refusal",
         "pass": true,
-        "measured": 47,
+        "measured": 31,
         "threshold": 64,
         "note": "Measured peak tasks; refusal would have produced invalid status"
       },
@@ -1453,14 +2069,14 @@
       {
         "id": "small.initial-observation.peak_rss",
         "pass": true,
-        "measured": 981540864,
+        "measured": 848269312,
         "threshold": 1610612736,
         "note": null
       },
       {
         "id": "small.initial-observation.no_pid_refusal",
         "pass": true,
-        "measured": 54,
+        "measured": 34,
         "threshold": 64,
         "note": "Measured peak tasks; refusal would have produced invalid status"
       },
@@ -1473,6 +2089,34 @@
       },
       {
         "id": "small.initial-retrieval-readiness.complete",
+        "pass": true,
+        "measured": "valid",
+        "threshold": "valid",
+        "note": null
+      },
+      {
+        "id": "small.initial-retrieval-readiness.peak_rss",
+        "pass": true,
+        "measured": 1235750912,
+        "threshold": 1610612736,
+        "note": null
+      },
+      {
+        "id": "small.initial-retrieval-readiness.no_pid_refusal",
+        "pass": true,
+        "measured": 34,
+        "threshold": 64,
+        "note": "Measured peak tasks; refusal would have produced invalid status"
+      },
+      {
+        "id": "small.initial-retrieval-readiness.no_orphans",
+        "pass": true,
+        "measured": "clean",
+        "threshold": "clean",
+        "note": null
+      },
+      {
+        "id": "small.first-useful-preparation.complete",
         "pass": false,
         "measured": "invalid",
         "threshold": "valid",
@@ -1481,7 +2125,7 @@
       {
         "id": "small.doctor-status-startup.cold_median",
         "pass": false,
-        "measured": 1105880854,
+        "measured": 1096035825,
         "threshold": 1000000000,
         "note": "Cold doctor/status median used as presubmit proxy; warm p95 requires 30-sample series"
       },
@@ -1494,15 +2138,15 @@
       },
       {
         "id": "oracle.semantic-oracle-v1",
-        "pass": true,
-        "measured": 0,
+        "pass": false,
+        "measured": 1,
         "threshold": 0,
         "note": "npm run test:semantic-oracle"
       },
       {
         "id": "oracle.real-repository-oracle-v1",
-        "pass": true,
-        "measured": 0,
+        "pass": false,
+        "measured": 1,
         "threshold": 0,
         "note": "npm run test:real-repository-oracle"
       },
@@ -1522,16 +2166,16 @@
       }
     ],
     "summary": {
-      "total": 19,
-      "passed": 17,
-      "failed": 2,
+      "total": 23,
+      "passed": 19,
+      "failed": 4,
       "deferred": 4,
       "blocking_deferred": 2,
       "overall_pass": false
     },
     "failed": [
       {
-        "id": "small.initial-retrieval-readiness.complete",
+        "id": "small.first-useful-preparation.complete",
         "pass": false,
         "measured": "invalid",
         "threshold": "valid",
@@ -1540,16 +2184,30 @@
       {
         "id": "small.doctor-status-startup.cold_median",
         "pass": false,
-        "measured": 1105880854,
+        "measured": 1096035825,
         "threshold": 1000000000,
         "note": "Cold doctor/status median used as presubmit proxy; warm p95 requires 30-sample series"
+      },
+      {
+        "id": "oracle.semantic-oracle-v1",
+        "pass": false,
+        "measured": 1,
+        "threshold": 0,
+        "note": "npm run test:semantic-oracle"
+      },
+      {
+        "id": "oracle.real-repository-oracle-v1",
+        "pass": false,
+        "measured": 1,
+        "threshold": 0,
+        "note": "npm run test:real-repository-oracle"
       }
     ],
     "deferred": [
       {
         "id": "16gb.small.baseline_matrix",
         "blocking": true,
-        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+        "reason": "Baseline promotion incomplete: first-useful-preparation=invalid, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
       },
       {
         "id": "16gb.small.baseline_exit",
@@ -1573,7 +2231,7 @@
       {
         "id": "16gb.small.baseline_matrix",
         "blocking": true,
-        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+        "reason": "Baseline promotion incomplete: first-useful-preparation=invalid, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
       },
       {
         "id": "16gb.small.baseline_exit",

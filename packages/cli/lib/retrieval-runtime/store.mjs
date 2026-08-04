@@ -209,10 +209,14 @@ export class RetrievalStore {
     this.extensionsLoaded = true;
   }
 
-  rebuildNativeIndexes() {
+  rebuildNativeIndexes({ force = false } = {}) {
     if (process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') return;
-    if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX === '1') return;
-    if (runtimeBudgetFromEnvironment()?.defer_retrieval_native_index) return;
+    // Bounded activation defers CREATE_*_INDEX to keep apply under pids.max.
+    // Query/recovery paths must still materialize indexes (force:true).
+    if (!force) {
+      if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX === '1') return;
+      if (runtimeBudgetFromEnvironment()?.defer_retrieval_native_index) return;
+    }
     this.ensureExtensions();
     const indexes = this.connection.querySync('CALL SHOW_INDEXES() RETURN *').getAllSync();
     for (const index of indexes) {
@@ -287,7 +291,7 @@ export class RetrievalStore {
     } catch (error) {
       this.recordFailure('retrieval_native_index_corrupt', error);
       if (!retry) throw error;
-      this.rebuildNativeIndexes();
+      this.rebuildNativeIndexes({ force: true });
       return this.nativeHybridRanking(
         documents,
         query,
@@ -325,14 +329,10 @@ export class RetrievalStore {
     let documents;
     const documentGeneration = manifest || pending;
     if (params.include_documents && documentGeneration) {
-      const members = this.query(
-        'MATCH (m:RetrievalMember) WHERE m.identity = $identity AND m.generation = $generation RETURN m.document_id AS id',
-        { identity, generation: documentGeneration.generation },
-      );
-      const wanted = new Set(members.map((item) => item.id));
-      documents = Object.fromEntries(this.query(
-        'MATCH (d:RetrievalDocument) RETURN d.id AS id, d.logical_key AS logical_key, d.content_hash AS content_hash',
-      ).filter((item) => wanted.has(item.id)).map((item) => [
+      // Reuse activeDocuments so inventory keys match counts.source_chunks /
+      // counts.workflows (same membership filter), instead of a second full-table
+      // scan that can disagree under Ladybug recovery after hard graphd stops.
+      documents = Object.fromEntries(this.activeDocuments(documentGeneration).map((item) => [
         item.logical_key,
         { id: item.id, content_hash: item.content_hash },
       ]));
@@ -544,6 +544,7 @@ export class RetrievalStore {
             { identity, generation },
           );
         });
+        this.connection.querySync('CHECKPOINT');
         this.clearFailure();
       } catch (error) {
         this.recordFailure('retrieval_activation_failed', error);
