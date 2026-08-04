@@ -4,9 +4,8 @@
 
 **Partial qualification — gates not met for epic close.**
 
-Lamina commit on branch `perf/issue-58-qualification` (PR #87); graphd lifecycle fix
-landed after `989e25eb`. Recorded on Linux x64 qualification host (65 GiB RAM,
-kernel `7.0.0-28-generic`) on 2026-08-04.
+Lamina commit on branch `perf/issue-58-qualification` (PR #87). Recorded on Linux x64
+qualification host (65 GiB RAM, kernel `7.0.0-28-generic`) on 2026-08-04.
 
 | Gate family | Result | Evidence |
 | --- | --- | --- |
@@ -14,7 +13,7 @@ kernel `7.0.0-28-generic`) on 2026-08-04.
 | Quality (#61 real-repository oracle contracts) | **Pass** | `npm run test:real-repository-oracle` |
 | Harness (#60 baseline contracts) | **Pass** | `npm run test:runtime-baseline` |
 | Linux packaging (#57, ≤750 MiB) | **Pass** | `linux_packaging_contract_test.mjs`; release workflow footprint gate |
-| Product baseline matrix (small) | **Fail** | `initial-retrieval-readiness` exceeds `pids.max` on promotion path; see below |
+| Product baseline matrix (small) | **Fail** | `initial-retrieval-readiness` promotion `safety_limit_exceeded` at `pids` |
 | Medium / large tiers | **Deferred** | Promotion fence after small incomplete |
 | macOS / Windows | **Deferred** | #78 process-control adapters |
 | Linux arm64 full matrix | **Deferred** | Packaging release-qualified; runtime matrix workflow_dispatch on arm64 runners |
@@ -49,7 +48,7 @@ Removed or deferred:
 | Footprint | Valid (~405 MiB peak) | **Valid** (~386 MiB cgroup peak) |
 | Doctor/status/startup | Valid (median 459 ms cold) | **Valid** (3/3 cold samples; no preflight refusal) |
 | Initial observation | Invalid (`pids` refusal) | **Valid** (3/3 cold samples; graphd released between samples) |
-| Retrieval readiness | Blocked | **Invalid** — promotion `safety_limit_exceeded` at `pids.max` (`peak_pids: 64`) |
+| Retrieval readiness | Blocked | **Invalid** — promotion `safety_limit_exceeded` at `pids` (`peak_pids: 54`, `pids.events.max: 5`) |
 | Warm preparation (30 samples) | Blocked | Blocked after retrieval-readiness |
 | Remaining scenarios | Blocked | Blocked |
 
@@ -58,30 +57,33 @@ Removed or deferred:
 `disposeRepository` uses the same teardown. Cold-sample preflight refusal on
 `initial-observation` is resolved.
 
-**Current small-tier blocker:** aggregate task count on `initial-retrieval-readiness`
-still trips cgroup `pids.max` (`peak_pids: 64`, `pids.events.max: 1`) during the
-rebuild-phase `retrieval.apply` burst. Steady-state samples hold at `peak_pids: 54`
-(ADR headroom target); a single 250 ms sample during apply reaches the ceiling.
-Attribution shows one graphd session (peak ~47 threads) plus index-embed worker
-descendants — no longer `detached_descendant` or dual-graphd overlap.
+**Current small-tier blocker:** `initial-retrieval-readiness` still trips cgroup
+`pids` enforcement during the split observe → `context rebuild` promotion path.
+Peak sampled tasks dropped from 64 to **54** (ADR headroom target), but
+`pids.events.max` reached **5** — fork attempts were refused before the peak
+counter saturated. Attribution shows four graphd sessions (peak 29 threads each),
+three retrieval-worker descendants, and fifteen `other` processes during the
+apply burst; no `detached_descendant` or dual-graphd overlap.
 
 Attribution reference:
 [`benchmarks/runtime-baseline-v1/attribution/small.json`](../runtime-baseline-v1/attribution/small.json).
 
-Latest rerun (2026-08-04, fresh safe-runner state, `/tmp/lamina-baseline-fix25-1785813162`):
-footprint + doctor + initial-observation **valid**; `initial-retrieval-readiness`
-promotion **invalid** at `peak_pids: 64` (`limit: pids`, not `detached_descendant`).
+Latest rerun (2026-08-04, fresh safe-runner state, `/home/aryan/lamina-qual-out7-1785815404`):
+footprint + doctor + initial-observation **valid** (3/12 small scenarios);
+`initial-retrieval-readiness` promotion **invalid** at `peak_pids: 54`,
+`pids.events.max: 5` (`limit: pids`, not `detached_descendant`).
 
 Fixes landed on this branch (not yet sufficient for promotion pass):
 
-- `graphdThreadEnvironment` / `graphdEnvironmentFor` apply Ladybug + ONNX thread caps to graphd spawn env
-- Embedded composite lifecycle (`runObservation` / `ensureRetrieval` `embedded: true`) in `graph retrieval-readiness`
-- `warmGraphd`, `LAMINA_GRAPHD_REUSE_ONLY`, and IPC `graph.engine.release` / `graph.retrieval.release` between observe and apply
-- Sealed retrieval-runtime copy from `benchmarks/runtime-baseline-v1/sealed/` (skips per-run `extract-assets`)
-- Split `index-embed` + CLI-side batched `retrieval.apply` under bounded topology
-- `defer_retrieval_native_index` under bounded topology
-- Lazy `GraphEngine` init in graphd for retrieval-only IPC
-- `applyLadybugThreadCap` on Ladybug connections and per-apply reinforcement
+- Split `initial-retrieval-readiness` into separate `graph observe` and
+  `context rebuild` CLI subprocesses under bounded topology (workload.mjs)
+- `drainRuntimeDescendants` + `forceStopManagedGraphd` before `index-embed`;
+  `restartGraphd` before batched `retrieval.apply` (process.mjs)
+- Bounded fast `complete:true` activation path skipping heavy native-index scans
+  (`defer_retrieval_native_index`, store.mjs)
+- `applyLadybugThreadCap` on wrapped Ladybug connections (runtime-budget.mjs)
+- Prior branch fixes: graphd thread caps, embedded lifecycle, sealed runtime,
+  split `index-embed` + CLI-side batched apply, lazy GraphEngine init
 
 ---
 
@@ -101,7 +103,8 @@ Fixes landed on this branch (not yet sufficient for promotion pass):
 Committed evaluation summary from `linux-x64-small-partial.json`:
 
 - Oracle suites: 4/4 pass
-- Product scenario gates: 16/19 pass (`initial-observation` **pass**; `initial-retrieval-readiness` **fail**)
+- Product scenario gates: 17/19 pass (`initial-observation` **pass**; `initial-retrieval-readiness` **fail**)
+- Small scenarios valid: **3/12** (footprint, doctor-status-startup, initial-observation)
 - Blocking deferred: baseline promotion incomplete; runner exit 2
 - `overall_pass`: **false**
 
@@ -130,21 +133,24 @@ npm run test:runtime-qualification:presubmit
 # Full small cell (requires production safe-runner + pinned cli-v0.3.5 assets)
 export LAMINA_SAFE_RUNNER_STATE_DIR=/tmp/lamina-runtime-qualification-safe-state
 npm run safe:self-test -- --require-production
-node benchmarks/runtime-qualification-v1/run.mjs run \
-  --profile 16gb --fixture small \
+node benchmarks/runtime-baseline-v1/run.mjs run \
+  --fixture small \
   --output /tmp/lamina-runtime-qualification-small \
   --model dist/runtime-baseline-inputs/model.onnx \
   --worker dist/runtime-baseline-inputs/cocoindex-worker
 ```
 
 Use a **fresh** `LAMINA_SAFE_RUNNER_STATE_DIR` when the workload command identity
-changes. See [`README.md`](README.md).
+changes. Ensure no concurrent baseline runs — orphaned Lamina descendants cause
+`preflight_refused` on subsequent scenarios. See [`README.md`](README.md).
 
 ---
 
-## Test commands (all pass on this commit)
+## Test commands (pass on this commit)
 
 ```bash
+node tests/runtime_budget_test.mjs
+node tests/retrieval_runtime_test.mjs
 npm run test:runtime-qualification
 npm run test:runtime-baseline
 npm run test:semantic-oracle
@@ -152,11 +158,18 @@ npm run test:real-repository-oracle
 node tests/linux_packaging_contract_test.mjs
 ```
 
+`retrieval_native_index_test.mjs` requires `npm run safe:run -- --tier small --workload retrieval-v1 --report .lamina-safe-runner/retrieval-native-index.json -- node tests/retrieval_native_index_test.mjs`.
+
 ---
 
 ## Phase 4 readiness
 
 **Not ready.** The #70 graphd cold-sample isolation blocker is fixed; small-tier
-measurement now stops at `initial-retrieval-readiness` (`pids.max`). Close #58 only
-after a complete small run, then medium/large promotion, with updated committed
-results and workflow artifacts.
+measurement now stops at `initial-retrieval-readiness` (`pids.events.max` > 0 at
+`peak_pids: 54`). Close #58 only after a complete small run, then medium/large
+promotion, with updated committed results and workflow artifacts.
+
+**Remaining blocker:** transient fork bursts during `context rebuild` (observe +
+index-embed + graphd restart + batched apply) still produce `pids.events.max` > 0
+under the 64-task ceiling without raising `pids.max`. Next work should target
+serializing graphd/index-embed overlap and reducing short-lived descendant churn.

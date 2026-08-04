@@ -12,6 +12,27 @@ const sameScopedIdentity = (record, claimed) => String(record?.start_ticks || ''
 const exactKeys = (value, keys) => value && typeof value === 'object' && !Array.isArray(value)
   && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
 
+function readLdPreload(pid) {
+  try {
+    const bytes = fs.readFileSync(`/proc/${pid}/environ`);
+    for (const item of bytes.toString('utf8').split('\0')) {
+      if (item.startsWith('LD_PRELOAD=')) return item.slice('LD_PRELOAD='.length);
+    }
+  } catch {}
+  return null;
+}
+
+function graphdExecutionHooksAuthorized(environment, expected, child) {
+  if (!Array.isArray(environment?.execution_hooks)) return false;
+  if (environment.execution_hooks.length === 0) return true;
+  if (environment.execution_hooks.length !== 1
+    || environment.execution_hooks[0] !== 'LD_PRELOAD'
+    || typeof expected?.allowed_ld_preload !== 'string'
+    || !path.isAbsolute(expected.allowed_ld_preload)) return false;
+  const actual = readLdPreload(child?.pid);
+  return actual === path.resolve(expected.allowed_ld_preload);
+}
+
 export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority = []) {
   const environment = child?.environment_attestation;
   if (!Array.isArray(child?.argv)
@@ -19,9 +40,9 @@ export function exactGraphdLaunchAuthorized(child, reservation, launchAuthority 
     || environment?.bounded !== true
     || environment?.malformed !== false
     || !Array.isArray(environment?.names)
-    || !Array.isArray(environment?.execution_hooks)
-    || environment.execution_hooks.length !== 0) return false;
+    || !Array.isArray(environment?.execution_hooks)) return false;
   return launchAuthority.some((expected) => {
+    if (!graphdExecutionHooksAuthorized(environment, expected, child)) return false;
     const executableMatches = ['dev', 'ino', 'uid'].every((field) =>
       child.executable_identity?.[field] === expected.executable_identity?.[field]);
     if (!executableMatches) return false;

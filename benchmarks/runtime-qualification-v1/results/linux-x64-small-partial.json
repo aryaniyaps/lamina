@@ -1,0 +1,1585 @@
+{
+  "schema": "lamina.runtime-qualification-result/v1",
+  "generated_at": "2026-08-04T04:07:42.957Z",
+  "index": {
+    "schema": "lamina.runtime-qualification-index/v1",
+    "generated_at": "2026-08-04T04:07:42.957Z",
+    "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+    "manifest_digest": "1f62d68e8fad47c48fb10a5ca20a124b8b96cf2932d8f58214e35f1249c4fb71",
+    "baseline_manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+    "host": {
+      "platform": "linux",
+      "arch": "x64",
+      "release": "7.0.0-28-generic",
+      "memory_bytes": 65562333184
+    },
+    "profile": "16gb",
+    "mode": "full",
+    "cells": [
+      {
+        "profile": "16gb",
+        "fixture": "small",
+        "platform": "linux-x64",
+        "baseline_output": "/home/aryan/lamina-qual-out7-1785815404",
+        "index": {
+          "schema": "lamina.runtime-baseline-index/v1",
+          "generated_at": "2026-08-04T03:52:28.647Z",
+          "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+          "host": {
+            "platform": "linux",
+            "release": "7.0.0-28-generic",
+            "architecture": "x64",
+            "cpu": "Intel(R) Core(TM) Ultra 9 185H",
+            "memory_bytes": 65562333184
+          },
+          "fixture": "small",
+          "completed": [
+            "small-footprint.json",
+            "small-doctor-status-startup.json",
+            "small-initial-observation.json",
+            "small-initial-retrieval-readiness.json"
+          ],
+          "scenarios": [
+            {
+              "scenario": "footprint",
+              "status": "valid"
+            },
+            {
+              "scenario": "doctor-status-startup",
+              "status": "valid"
+            },
+            {
+              "scenario": "initial-observation",
+              "status": "valid"
+            },
+            {
+              "scenario": "initial-retrieval-readiness",
+              "status": "invalid"
+            },
+            {
+              "scenario": "first-useful-preparation",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "warm-preparation",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "noop-synchronization",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "one-file-change",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "multi-file-change",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "full-derived-state-rebuild",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "post-command-idle-rss",
+              "status": "blocked_after_previous_failure"
+            },
+            {
+              "scenario": "cancellation-shutdown-cleanup",
+              "status": "blocked_after_previous_failure"
+            }
+          ],
+          "expected": 12,
+          "complete": false
+        },
+        "scenario_results": [
+          {
+            "schema": "lamina.runtime-baseline-result/v1",
+            "generated_at": "2026-08-04T03:50:10.708Z",
+            "status": "valid",
+            "fixture": {
+              "id": "small",
+              "commit": "9506629ed003a561c6627735480cce4994244bb4",
+              "url": "https://github.com/alan2207/bulletproof-react.git"
+            },
+            "scenario": "footprint",
+            "measured_tier": "small",
+            "workload": {
+              "schema": "lamina.runtime-baseline-workload/v1",
+              "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+              "fixture": {
+                "id": "small",
+                "name": "Bulletproof React",
+                "url": "https://github.com/alan2207/bulletproof-react.git",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "class": "small",
+                "languages": [
+                  "TypeScript",
+                  "React"
+                ],
+                "polyglot": false
+              },
+              "scenario": "footprint",
+              "runtime": {
+                "node": "v24.18.0",
+                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "assets_release": "cli-v0.3.5"
+              },
+              "samples": [],
+              "statistics": null,
+              "classification": "static",
+              "repository": {
+                "tracked_files": 535,
+                "tracked_bytes": 2640087,
+                "tracked_source_files": 438,
+                "tracked_source_bytes": 628504,
+                "tracked_source_loc": 20450,
+                "observation_indexed_files": 535,
+                "observation_indexed_bytes": 2640087,
+                "observation_paths_digest": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+                "retrieval_candidate_files": 467,
+                "retrieval_candidate_bytes": 693785,
+                "retrieval_paths_digest": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "exclusion_rules": [
+                  ".git",
+                  ".agents/skills",
+                  ".claude/skills",
+                  ".codex/skills",
+                  ".opencode/skills",
+                  ".lamina/runs",
+                  ".lamina/runtime",
+                  ".lamina/runtime-cli",
+                  "node_modules",
+                  "__pycache__",
+                  ".venv*",
+                  ".next",
+                  "dist",
+                  "build",
+                  "coverage",
+                  "benchmarks/results",
+                  "evals/fixtures/.vendor-tmp*"
+                ],
+                "retrieval_indexed_files": null,
+                "retrieval_indexed_bytes": null,
+                "retrieval_source_chunks": null
+              },
+              "diagnostics": {
+                "source_cli": {
+                  "files": 41,
+                  "bytes": 77576145
+                },
+                "prepared_assets": {
+                  "files": 4,
+                  "bytes": 5950249
+                },
+                "sealed_model": {
+                  "files": 1,
+                  "bytes": 161895621
+                },
+                "sealed_worker": {
+                  "files": 1,
+                  "bytes": 77038920
+                }
+              },
+              "attribution": {
+                "phase_order": [
+                  "doctor",
+                  "status",
+                  "startup",
+                  "observation",
+                  "retrieval_readiness",
+                  "preparation",
+                  "noop_sync",
+                  "incremental_change",
+                  "rebuild",
+                  "idle",
+                  "shutdown",
+                  "cleanup"
+                ],
+                "phase_ids": [],
+                "phase_time_ns": [
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "subprocess_launches": {
+                  "graphd": 0,
+                  "cocoindex_worker": 0,
+                  "onnx_embedder": 0,
+                  "cli": 0,
+                  "other": 0
+                },
+                "descendant_peaks_by_phase": {}
+              },
+              "cleanup": {
+                "repository_removed": true,
+                "socket_removed": true,
+                "lock_removed": true,
+                "lifecycle": {
+                  "graphd": {
+                    "released": false,
+                    "reason": "absent"
+                  },
+                  "orphans": {
+                    "stopped": []
+                  },
+                  "orphan_drain": {
+                    "remaining": 0
+                  },
+                  "orphan_check": {
+                    "ok": true,
+                    "remaining": []
+                  }
+                }
+              }
+            },
+            "runs": [
+              {
+                "tier": "small",
+                "purpose": "promotion-and-measurement",
+                "sample_index": 0,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 6498,
+                "peak_memory_bytes": 181624832,
+                "peak_pids": 14,
+                "peak_temporary_bytes": 15843328,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-footprint-promotion-small.json",
+                "raw_report_sha256": "e8b402de2cb881c3a0b7df4ef1f0bdea53d63bf4e979fc89f58c3a1af4691d0a"
+              }
+            ],
+            "limitations": [
+              "Linux x64 baseline; other platforms are not represented.",
+              "CocoIndex worker and production retrieval model are checksum-pinned release assets; current JavaScript CLI and graphd come from the measured Lamina commit."
+            ]
+          },
+          {
+            "schema": "lamina.runtime-baseline-result/v1",
+            "generated_at": "2026-08-04T03:50:32.513Z",
+            "status": "valid",
+            "fixture": {
+              "id": "small",
+              "commit": "9506629ed003a561c6627735480cce4994244bb4",
+              "url": "https://github.com/alan2207/bulletproof-react.git"
+            },
+            "scenario": "doctor-status-startup",
+            "measured_tier": "small",
+            "workload": {
+              "schema": "lamina.runtime-baseline-workload/v1",
+              "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+              "fixture": {
+                "id": "small",
+                "name": "Bulletproof React",
+                "url": "https://github.com/alan2207/bulletproof-react.git",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "class": "small",
+                "languages": [
+                  "TypeScript",
+                  "React"
+                ],
+                "polyglot": false
+              },
+              "scenario": "doctor-status-startup",
+              "runtime": {
+                "node": "v24.18.0",
+                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "assets_release": "cli-v0.3.5"
+              },
+              "samples": [
+                {
+                  "index": 0,
+                  "wall_time_ns": 994802020,
+                  "diagnostics": {
+                    "doctor_wall_time_ns": 348155082,
+                    "status_and_graphd_startup_wall_time_ns": 645520446,
+                    "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "doctor",
+                      "status",
+                      "startup"
+                    ],
+                    "phase_time_ns": [
+                      348180533,
+                      null,
+                      645532306,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 0,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 0
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 1,
+                  "wall_time_ns": 1105880854,
+                  "diagnostics": {
+                    "doctor_wall_time_ns": 368932562,
+                    "status_and_graphd_startup_wall_time_ns": 735512659,
+                    "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "doctor",
+                      "status",
+                      "startup"
+                    ],
+                    "phase_time_ns": [
+                      368968358,
+                      null,
+                      735530752,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 0,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 0
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 2,
+                  "wall_time_ns": 1142181619,
+                  "diagnostics": {
+                    "doctor_wall_time_ns": 372693828,
+                    "status_and_graphd_startup_wall_time_ns": 767618566,
+                    "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "doctor",
+                      "status",
+                      "startup"
+                    ],
+                    "phase_time_ns": [
+                      372730364,
+                      null,
+                      767639472,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 0,
+                      "onnx_embedder": 0,
+                      "cli": 2,
+                      "other": 0
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                }
+              ],
+              "statistics": {
+                "count": 3,
+                "median": 1105880854,
+                "maximum": 1142181619,
+                "p90": null,
+                "p95": null
+              },
+              "classification": "cold",
+              "repository": {
+                "tracked_files": 535,
+                "tracked_bytes": 2640087,
+                "tracked_source_files": 438,
+                "tracked_source_bytes": 628504,
+                "tracked_source_loc": 20450,
+                "observation_indexed_files": 535,
+                "observation_indexed_bytes": 2640087,
+                "observation_paths_digest": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+                "retrieval_candidate_files": 467,
+                "retrieval_candidate_bytes": 693785,
+                "retrieval_paths_digest": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "exclusion_rules": [
+                  ".git",
+                  ".agents/skills",
+                  ".claude/skills",
+                  ".codex/skills",
+                  ".opencode/skills",
+                  ".lamina/runs",
+                  ".lamina/runtime",
+                  ".lamina/runtime-cli",
+                  "node_modules",
+                  "__pycache__",
+                  ".venv*",
+                  ".next",
+                  "dist",
+                  "build",
+                  "coverage",
+                  "benchmarks/results",
+                  "evals/fixtures/.vendor-tmp*"
+                ],
+                "retrieval_indexed_files": null,
+                "retrieval_indexed_bytes": null,
+                "retrieval_source_chunks": null
+              },
+              "diagnostics": [
+                {
+                  "doctor_wall_time_ns": 348155082,
+                  "status_and_graphd_startup_wall_time_ns": 645520446,
+                  "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                },
+                {
+                  "doctor_wall_time_ns": 368932562,
+                  "status_and_graphd_startup_wall_time_ns": 735512659,
+                  "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                },
+                {
+                  "doctor_wall_time_ns": 372693828,
+                  "status_and_graphd_startup_wall_time_ns": 767618566,
+                  "graph_version": "version_61f650c9c9d7d6a18e89e810ac4a9a1d"
+                }
+              ],
+              "attribution": {
+                "phase_order": [
+                  "doctor",
+                  "status",
+                  "startup",
+                  "observation",
+                  "retrieval_readiness",
+                  "preparation",
+                  "noop_sync",
+                  "incremental_change",
+                  "rebuild",
+                  "idle",
+                  "shutdown",
+                  "cleanup"
+                ],
+                "phase_ids": [
+                  "doctor",
+                  "status",
+                  "startup"
+                ],
+                "phase_time_ns": [
+                  372730364,
+                  null,
+                  767639472,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "subprocess_launches": {
+                  "graphd": 0,
+                  "cocoindex_worker": 0,
+                  "onnx_embedder": 0,
+                  "cli": 2,
+                  "other": 0
+                },
+                "descendant_peaks_by_phase": {}
+              },
+              "cleanup": {
+                "repository_removed": true,
+                "socket_removed": true,
+                "lock_removed": true
+              }
+            },
+            "runs": [
+              {
+                "tier": "small",
+                "purpose": "promotion-and-measurement",
+                "sample_index": 0,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 7028,
+                "peak_memory_bytes": 298520576,
+                "peak_pids": 41,
+                "peak_temporary_bytes": 15982592,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-doctor-status-startup-promotion-small.json",
+                "raw_report_sha256": "ad0a4587ead660429be0266e4c23a9260fc2ecf4e79eb0788f5d0cb3d5829a3c"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 1,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 7617,
+                "peak_memory_bytes": 299212800,
+                "peak_pids": 46,
+                "peak_temporary_bytes": 15982592,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-doctor-status-startup-measurement-1.json",
+                "raw_report_sha256": "e22e6b22a25599e2e45bf772e40aa22c6f29e79099b50109bf738ea6f6641f0c"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 2,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 6989,
+                "peak_memory_bytes": 300273664,
+                "peak_pids": 47,
+                "peak_temporary_bytes": 15982592,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-doctor-status-startup-measurement-2.json",
+                "raw_report_sha256": "07d19ff0a99bedab20d9f0cde67a45193ce0b0b4dff3618a36c74db313c394b2"
+              }
+            ],
+            "limitations": [
+              "Linux x64 baseline; other platforms are not represented.",
+              "CocoIndex worker and production retrieval model are checksum-pinned release assets; current JavaScript CLI and graphd come from the measured Lamina commit."
+            ]
+          },
+          {
+            "schema": "lamina.runtime-baseline-result/v1",
+            "generated_at": "2026-08-04T03:51:56.471Z",
+            "status": "valid",
+            "fixture": {
+              "id": "small",
+              "commit": "9506629ed003a561c6627735480cce4994244bb4",
+              "url": "https://github.com/alan2207/bulletproof-react.git"
+            },
+            "scenario": "initial-observation",
+            "measured_tier": "small",
+            "workload": {
+              "schema": "lamina.runtime-baseline-workload/v1",
+              "manifest_digest": "f09b150e794c6839611e47b54e2deb769462cfb6411548231017774944f5e975",
+              "fixture": {
+                "id": "small",
+                "name": "Bulletproof React",
+                "url": "https://github.com/alan2207/bulletproof-react.git",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "class": "small",
+                "languages": [
+                  "TypeScript",
+                  "React"
+                ],
+                "polyglot": false
+              },
+              "scenario": "initial-observation",
+              "runtime": {
+                "node": "v24.18.0",
+                "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
+                "assets_release": "cli-v0.3.5"
+              },
+              "samples": [
+                {
+                  "index": 0,
+                  "wall_time_ns": 21916523883,
+                  "diagnostics": {
+                    "schema": null,
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "generation": "generation_ebae68d99c3c26d3a46715d1a4d70ef1",
+                    "expected": 535,
+                    "observed": 535,
+                    "source_key_count": 535,
+                    "counts": null,
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "product_attribution": {
+                      "backend": "cocoindex",
+                      "mode": "observe",
+                      "subprocess_launches": {
+                        "cocoindex_worker": 1,
+                        "graphd": 1,
+                        "cli": 0,
+                        "onnx_embedder": 0,
+                        "other": 0
+                      },
+                      "worker_attempts": 1,
+                      "graphd_pid": 112,
+                      "graphd_threads": 29,
+                      "observation_fan_out": 535,
+                      "ipc_round_trips": 1,
+                      "db_checkpoints": 535
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "startup",
+                      "observation"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      21916578222,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 1,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 1,
+                  "wall_time_ns": 22162133107,
+                  "diagnostics": {
+                    "schema": null,
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "generation": "generation_4c71db3f15aefc6e43074a1c80092420",
+                    "expected": 535,
+                    "observed": 535,
+                    "source_key_count": 535,
+                    "counts": null,
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "product_attribution": {
+                      "backend": "cocoindex",
+                      "mode": "observe",
+                      "subprocess_launches": {
+                        "cocoindex_worker": 1,
+                        "graphd": 1,
+                        "cli": 0,
+                        "onnx_embedder": 0,
+                        "other": 0
+                      },
+                      "worker_attempts": 1,
+                      "graphd_pid": 112,
+                      "graphd_threads": 29,
+                      "observation_fan_out": 535,
+                      "ipc_round_trips": 1,
+                      "db_checkpoints": 535
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "startup",
+                      "observation"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      22162182076,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 1,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "index": 2,
+                  "wall_time_ns": 22104868462,
+                  "diagnostics": {
+                    "schema": null,
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "generation": "generation_2b04962251140f9e42b0d57830b3b39b",
+                    "expected": 535,
+                    "observed": 535,
+                    "source_key_count": 535,
+                    "counts": null,
+                    "freshness": null,
+                    "index_digest": null,
+                    "retrieval_generation": null,
+                    "retrieval_outcome": null,
+                    "explicit_workflow_bypass": null,
+                    "degradation": null,
+                    "selected_workflow_ids": null,
+                    "source_chunk_count": null,
+                    "source_chunk_paths": null,
+                    "packet_id": null,
+                    "obligation_count": null,
+                    "experience_case_count": null,
+                    "product_attribution": {
+                      "backend": "cocoindex",
+                      "mode": "observe",
+                      "subprocess_launches": {
+                        "cocoindex_worker": 1,
+                        "graphd": 1,
+                        "cli": 0,
+                        "onnx_embedder": 0,
+                        "other": 0
+                      },
+                      "worker_attempts": 1,
+                      "graphd_pid": 112,
+                      "graphd_threads": 29,
+                      "observation_fan_out": 535,
+                      "ipc_round_trips": 1,
+                      "db_checkpoints": 535
+                    }
+                  },
+                  "attribution": {
+                    "phase_order": [
+                      "doctor",
+                      "status",
+                      "startup",
+                      "observation",
+                      "retrieval_readiness",
+                      "preparation",
+                      "noop_sync",
+                      "incremental_change",
+                      "rebuild",
+                      "idle",
+                      "shutdown",
+                      "cleanup"
+                    ],
+                    "phase_ids": [
+                      "startup",
+                      "observation"
+                    ],
+                    "phase_time_ns": [
+                      null,
+                      null,
+                      null,
+                      22104909136,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null,
+                      null
+                    ],
+                    "subprocess_launches": {
+                      "graphd": 0,
+                      "cocoindex_worker": 1,
+                      "onnx_embedder": 0,
+                      "cli": 1,
+                      "other": 1
+                    },
+                    "descendant_peaks_by_phase": {}
+                  },
+                  "cleanup": {
+                    "repository_removed": true,
+                    "socket_removed": true,
+                    "lock_removed": true,
+                    "lifecycle": {
+                      "graphd": {
+                        "released": false,
+                        "reason": "absent"
+                      },
+                      "orphans": {
+                        "stopped": []
+                      },
+                      "orphan_drain": {
+                        "remaining": 0
+                      },
+                      "orphan_check": {
+                        "ok": true,
+                        "remaining": []
+                      }
+                    }
+                  }
+                }
+              ],
+              "statistics": {
+                "count": 3,
+                "median": 22104868462,
+                "maximum": 22162133107,
+                "p90": null,
+                "p95": null
+              },
+              "classification": "cold",
+              "repository": {
+                "tracked_files": 535,
+                "tracked_bytes": 2640087,
+                "tracked_source_files": 438,
+                "tracked_source_bytes": 628504,
+                "tracked_source_loc": 20450,
+                "observation_indexed_files": 535,
+                "observation_indexed_bytes": 2640087,
+                "observation_paths_digest": "a751c5ae498aad42ec231daf714f8bede3e76f1d6f083ccbe3b6097f666b07cc",
+                "retrieval_candidate_files": 467,
+                "retrieval_candidate_bytes": 693785,
+                "retrieval_paths_digest": "8915cb111c9232dd2645d5b470e95fcfddc8a2293f4cc6881a9727c52864d52b",
+                "commit": "9506629ed003a561c6627735480cce4994244bb4",
+                "exclusion_rules": [
+                  ".git",
+                  ".agents/skills",
+                  ".claude/skills",
+                  ".codex/skills",
+                  ".opencode/skills",
+                  ".lamina/runs",
+                  ".lamina/runtime",
+                  ".lamina/runtime-cli",
+                  "node_modules",
+                  "__pycache__",
+                  ".venv*",
+                  ".next",
+                  "dist",
+                  "build",
+                  "coverage",
+                  "benchmarks/results",
+                  "evals/fixtures/.vendor-tmp*"
+                ],
+                "retrieval_indexed_files": null,
+                "retrieval_indexed_bytes": null,
+                "retrieval_source_chunks": null
+              },
+              "diagnostics": [
+                {
+                  "schema": null,
+                  "backend": "cocoindex",
+                  "mode": "observe",
+                  "generation": "generation_ebae68d99c3c26d3a46715d1a4d70ef1",
+                  "expected": 535,
+                  "observed": 535,
+                  "source_key_count": 535,
+                  "counts": null,
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "product_attribution": {
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "subprocess_launches": {
+                      "cocoindex_worker": 1,
+                      "graphd": 1,
+                      "cli": 0,
+                      "onnx_embedder": 0,
+                      "other": 0
+                    },
+                    "worker_attempts": 1,
+                    "graphd_pid": 112,
+                    "graphd_threads": 29,
+                    "observation_fan_out": 535,
+                    "ipc_round_trips": 1,
+                    "db_checkpoints": 535
+                  }
+                },
+                {
+                  "schema": null,
+                  "backend": "cocoindex",
+                  "mode": "observe",
+                  "generation": "generation_4c71db3f15aefc6e43074a1c80092420",
+                  "expected": 535,
+                  "observed": 535,
+                  "source_key_count": 535,
+                  "counts": null,
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "product_attribution": {
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "subprocess_launches": {
+                      "cocoindex_worker": 1,
+                      "graphd": 1,
+                      "cli": 0,
+                      "onnx_embedder": 0,
+                      "other": 0
+                    },
+                    "worker_attempts": 1,
+                    "graphd_pid": 112,
+                    "graphd_threads": 29,
+                    "observation_fan_out": 535,
+                    "ipc_round_trips": 1,
+                    "db_checkpoints": 535
+                  }
+                },
+                {
+                  "schema": null,
+                  "backend": "cocoindex",
+                  "mode": "observe",
+                  "generation": "generation_2b04962251140f9e42b0d57830b3b39b",
+                  "expected": 535,
+                  "observed": 535,
+                  "source_key_count": 535,
+                  "counts": null,
+                  "freshness": null,
+                  "index_digest": null,
+                  "retrieval_generation": null,
+                  "retrieval_outcome": null,
+                  "explicit_workflow_bypass": null,
+                  "degradation": null,
+                  "selected_workflow_ids": null,
+                  "source_chunk_count": null,
+                  "source_chunk_paths": null,
+                  "packet_id": null,
+                  "obligation_count": null,
+                  "experience_case_count": null,
+                  "product_attribution": {
+                    "backend": "cocoindex",
+                    "mode": "observe",
+                    "subprocess_launches": {
+                      "cocoindex_worker": 1,
+                      "graphd": 1,
+                      "cli": 0,
+                      "onnx_embedder": 0,
+                      "other": 0
+                    },
+                    "worker_attempts": 1,
+                    "graphd_pid": 112,
+                    "graphd_threads": 29,
+                    "observation_fan_out": 535,
+                    "ipc_round_trips": 1,
+                    "db_checkpoints": 535
+                  }
+                }
+              ],
+              "attribution": {
+                "phase_order": [
+                  "doctor",
+                  "status",
+                  "startup",
+                  "observation",
+                  "retrieval_readiness",
+                  "preparation",
+                  "noop_sync",
+                  "incremental_change",
+                  "rebuild",
+                  "idle",
+                  "shutdown",
+                  "cleanup"
+                ],
+                "phase_ids": [
+                  "startup",
+                  "observation"
+                ],
+                "phase_time_ns": [
+                  null,
+                  null,
+                  null,
+                  22104909136,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null,
+                  null
+                ],
+                "subprocess_launches": {
+                  "graphd": 0,
+                  "cocoindex_worker": 1,
+                  "onnx_embedder": 0,
+                  "cli": 1,
+                  "other": 1
+                },
+                "descendant_peaks_by_phase": {}
+              },
+              "cleanup": {
+                "repository_removed": true,
+                "socket_removed": true,
+                "lock_removed": true
+              }
+            },
+            "runs": [
+              {
+                "tier": "small",
+                "purpose": "promotion-and-measurement",
+                "sample_index": 0,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 27720,
+                "peak_memory_bytes": 979341312,
+                "peak_pids": 54,
+                "peak_temporary_bytes": 250437632,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-observation-promotion-small.json",
+                "raw_report_sha256": "39b5de40b991e6bbdeea5bb3c0135be33b01875d4d522963e34e90db229eff0d"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 1,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 28135,
+                "peak_memory_bytes": 973836288,
+                "peak_pids": 54,
+                "peak_temporary_bytes": 251002880,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-observation-measurement-1.json",
+                "raw_report_sha256": "94e3ab887b5057128c50505928520da1731b4a0f47a41fe31cfae6f6caa3882b"
+              },
+              {
+                "tier": "small",
+                "purpose": "measurement",
+                "sample_index": 2,
+                "outcome": "success",
+                "limit": null,
+                "duration_ms": 27937,
+                "peak_memory_bytes": 981540864,
+                "peak_pids": 54,
+                "peak_temporary_bytes": 250695680,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-observation-measurement-2.json",
+                "raw_report_sha256": "d44d9c5ed84d30d3305bedfa681cf1afdcbbfb87db2a020f48e60fca5969318b"
+              }
+            ],
+            "limitations": [
+              "Linux x64 baseline; other platforms are not represented.",
+              "CocoIndex worker and production retrieval model are checksum-pinned release assets; current JavaScript CLI and graphd come from the measured Lamina commit."
+            ]
+          },
+          {
+            "schema": "lamina.runtime-baseline-result/v1",
+            "generated_at": "2026-08-04T03:52:28.646Z",
+            "status": "invalid",
+            "fixture": {
+              "id": "small",
+              "commit": "9506629ed003a561c6627735480cce4994244bb4",
+              "url": "https://github.com/alan2207/bulletproof-react.git"
+            },
+            "scenario": "initial-retrieval-readiness",
+            "measured_tier": "small",
+            "workload": null,
+            "runs": [
+              {
+                "tier": "small",
+                "purpose": "promotion-and-measurement",
+                "sample_index": 0,
+                "outcome": "safety_limit_exceeded",
+                "limit": "pids",
+                "duration_ms": 32128,
+                "peak_memory_bytes": 979140608,
+                "peak_pids": 54,
+                "peak_temporary_bytes": 250384384,
+                "remaining_descendants": 0,
+                "remaining_managed_paths": 0,
+                "raw_report": "raw/small-initial-retrieval-readiness-promotion-small.json",
+                "raw_report_sha256": "f363d67ef7eb7867ada354b923e1ead94119fdf31717374ce564169920bc2d0c"
+              }
+            ],
+            "limitations": [
+              "Linux x64 baseline; other platforms are not represented.",
+              "CocoIndex worker and production retrieval model are checksum-pinned release assets; current JavaScript CLI and graphd come from the measured Lamina commit."
+            ]
+          }
+        ],
+        "exit_code": 2
+      }
+    ],
+    "oracle_results": [
+      {
+        "id": "semantic-oracle-v1",
+        "command": "npm run test:semantic-oracle",
+        "exit_code": 0,
+        "skipped": false
+      },
+      {
+        "id": "real-repository-oracle-v1",
+        "command": "npm run test:real-repository-oracle",
+        "exit_code": 0,
+        "skipped": false
+      },
+      {
+        "id": "runtime-baseline-contract",
+        "command": "npm run test:runtime-baseline",
+        "exit_code": 0,
+        "skipped": false
+      },
+      {
+        "id": "linux-packaging",
+        "command": "node tests/linux_packaging_contract_test.mjs",
+        "exit_code": 0,
+        "skipped": false
+      }
+    ],
+    "deferred": [
+      {
+        "id": "16gb.small.baseline_matrix",
+        "blocking": true,
+        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+      },
+      {
+        "id": "16gb.small.baseline_exit",
+        "blocking": true,
+        "reason": "Baseline runner exited 2 before completing the promotion fence"
+      },
+      {
+        "id": "platform.macos",
+        "blocking": false,
+        "reason": "deferred per #78",
+        "issue": 78
+      },
+      {
+        "id": "platform.windows",
+        "blocking": false,
+        "reason": "deferred per #78",
+        "issue": 78
+      }
+    ],
+    "install_footprint": null
+  },
+  "evaluation": {
+    "gates": [
+      {
+        "id": "small.footprint.complete",
+        "pass": true,
+        "measured": "valid",
+        "threshold": "valid",
+        "note": null
+      },
+      {
+        "id": "small.footprint.peak_rss",
+        "pass": true,
+        "measured": 181624832,
+        "threshold": 1610612736,
+        "note": null
+      },
+      {
+        "id": "small.footprint.no_pid_refusal",
+        "pass": true,
+        "measured": 14,
+        "threshold": 64,
+        "note": "Measured peak tasks; refusal would have produced invalid status"
+      },
+      {
+        "id": "small.footprint.no_orphans",
+        "pass": true,
+        "measured": "clean",
+        "threshold": "clean",
+        "note": null
+      },
+      {
+        "id": "small.doctor-status-startup.complete",
+        "pass": true,
+        "measured": "valid",
+        "threshold": "valid",
+        "note": null
+      },
+      {
+        "id": "small.doctor-status-startup.peak_rss",
+        "pass": true,
+        "measured": 300273664,
+        "threshold": 1610612736,
+        "note": null
+      },
+      {
+        "id": "small.doctor-status-startup.no_pid_refusal",
+        "pass": true,
+        "measured": 47,
+        "threshold": 64,
+        "note": "Measured peak tasks; refusal would have produced invalid status"
+      },
+      {
+        "id": "small.doctor-status-startup.no_orphans",
+        "pass": true,
+        "measured": "clean",
+        "threshold": "clean",
+        "note": null
+      },
+      {
+        "id": "small.initial-observation.complete",
+        "pass": true,
+        "measured": "valid",
+        "threshold": "valid",
+        "note": null
+      },
+      {
+        "id": "small.initial-observation.peak_rss",
+        "pass": true,
+        "measured": 981540864,
+        "threshold": 1610612736,
+        "note": null
+      },
+      {
+        "id": "small.initial-observation.no_pid_refusal",
+        "pass": true,
+        "measured": 54,
+        "threshold": 64,
+        "note": "Measured peak tasks; refusal would have produced invalid status"
+      },
+      {
+        "id": "small.initial-observation.no_orphans",
+        "pass": true,
+        "measured": "clean",
+        "threshold": "clean",
+        "note": null
+      },
+      {
+        "id": "small.initial-retrieval-readiness.complete",
+        "pass": false,
+        "measured": "invalid",
+        "threshold": "valid",
+        "note": "Scenario must complete without safety refusal or invalid evidence"
+      },
+      {
+        "id": "small.doctor-status-startup.cold_median",
+        "pass": false,
+        "measured": 1105880854,
+        "threshold": 1000000000,
+        "note": "Cold doctor/status median used as presubmit proxy; warm p95 requires 30-sample series"
+      },
+      {
+        "id": "small.footprint.prepared_assets",
+        "pass": true,
+        "measured": 244884790,
+        "threshold": 786432000,
+        "note": "Prepared runtime assets from baseline footprint scenario; release install gate uses linux-install-footprint"
+      },
+      {
+        "id": "oracle.semantic-oracle-v1",
+        "pass": true,
+        "measured": 0,
+        "threshold": 0,
+        "note": "npm run test:semantic-oracle"
+      },
+      {
+        "id": "oracle.real-repository-oracle-v1",
+        "pass": true,
+        "measured": 0,
+        "threshold": 0,
+        "note": "npm run test:real-repository-oracle"
+      },
+      {
+        "id": "oracle.runtime-baseline-contract",
+        "pass": true,
+        "measured": 0,
+        "threshold": 0,
+        "note": "npm run test:runtime-baseline"
+      },
+      {
+        "id": "oracle.linux-packaging",
+        "pass": true,
+        "measured": 0,
+        "threshold": 0,
+        "note": "node tests/linux_packaging_contract_test.mjs"
+      }
+    ],
+    "summary": {
+      "total": 19,
+      "passed": 17,
+      "failed": 2,
+      "deferred": 4,
+      "blocking_deferred": 2,
+      "overall_pass": false
+    },
+    "failed": [
+      {
+        "id": "small.initial-retrieval-readiness.complete",
+        "pass": false,
+        "measured": "invalid",
+        "threshold": "valid",
+        "note": "Scenario must complete without safety refusal or invalid evidence"
+      },
+      {
+        "id": "small.doctor-status-startup.cold_median",
+        "pass": false,
+        "measured": 1105880854,
+        "threshold": 1000000000,
+        "note": "Cold doctor/status median used as presubmit proxy; warm p95 requires 30-sample series"
+      }
+    ],
+    "deferred": [
+      {
+        "id": "16gb.small.baseline_matrix",
+        "blocking": true,
+        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+      },
+      {
+        "id": "16gb.small.baseline_exit",
+        "blocking": true,
+        "reason": "Baseline runner exited 2 before completing the promotion fence"
+      },
+      {
+        "id": "platform.macos",
+        "blocking": false,
+        "reason": "deferred per #78",
+        "issue": 78
+      },
+      {
+        "id": "platform.windows",
+        "blocking": false,
+        "reason": "deferred per #78",
+        "issue": 78
+      }
+    ],
+    "blocking_deferred": [
+      {
+        "id": "16gb.small.baseline_matrix",
+        "blocking": true,
+        "reason": "Baseline promotion incomplete: initial-retrieval-readiness=invalid, first-useful-preparation=blocked_after_previous_failure, warm-preparation=blocked_after_previous_failure, noop-synchronization=blocked_after_previous_failure, one-file-change=blocked_after_previous_failure, multi-file-change=blocked_after_previous_failure, full-derived-state-rebuild=blocked_after_previous_failure, post-command-idle-rss=blocked_after_previous_failure, cancellation-shutdown-cleanup=blocked_after_previous_failure"
+      },
+      {
+        "id": "16gb.small.baseline_exit",
+        "blocking": true,
+        "reason": "Baseline runner exited 2 before completing the promotion fence"
+      }
+    ]
+  }
+}

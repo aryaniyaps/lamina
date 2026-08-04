@@ -10,10 +10,14 @@ import { retrievalIdentity, workflowDocuments } from './documents.mjs';
 import { retrievalWorkerThreadEnvironment, retrievalBatchEnvironment, runtimeBudgetFromEnvironment } from '../runtime-budget.mjs';
 import {
   assertCompatibleRuntimeIdentity,
+  forceStopManagedGraphd,
   forceStopRuntimeOrphans,
+  listRuntimeDescendantPids,
   releaseGraphdBeforeRetrieval,
   runWithRuntimeLifecycle,
+  waitForGraphdFullyReleased,
 } from '../runtime-lifecycle.mjs';
+import { processIsRunning } from '../graph-runtime/util.mjs';
 import {
   generationStatePath as observationGenerationStatePath,
   readGenerationState as readObservationGenerationState,
@@ -188,12 +192,32 @@ function statusParams(snapshot, includeDocuments = false) {
   };
 }
 
+async function drainRuntimeDescendants(cwd, { timeoutMs = 5_000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await forceStopRuntimeOrphans(cwd);
+    const remaining = listRuntimeDescendantPids(cwd).filter((pid) => processIsRunning(pid));
+    if (!remaining.length) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+/** Stop graphd and wait until its Ladybug thread pools are gone before spawning again. */
+async function replaceGraphdFresh(cwd) {
+  delete process.env.LAMINA_GRAPHD_REUSE_ONLY;
+  await forceStopManagedGraphd(cwd);
+  await waitForGraphdFullyReleased(cwd);
+  await drainRuntimeDescendants(cwd);
+  return ensureGraphd(cwd);
+}
+
 async function applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdActive = false } = {}) {
   const budget = runtimeBudgetFromEnvironment();
   const batchCap = budget?.retrieval_batch_size ?? 16;
   const { upserts, members, deletes, generation, manifest } = indexPlan;
   const spans = Math.max(upserts.length, members.length, 1);
-  if (!graphdActive) await restartGraphd(cwd);
+  if (budget) await replaceGraphdFresh(cwd);
+  else if (!graphdActive) await restartGraphd(cwd);
   for (let offset = 0; offset < spans; offset += batchCap) {
     await graphRequest('retrieval.apply', {
       identity: snapshot.identity,
@@ -247,6 +271,15 @@ export async function ensureRetrieval(
     graphd = await ensureGraphd(cwd);
   }
   const snapshot = await retrievalSnapshot(cwd, model);
+  const budget = runtimeBudgetFromEnvironment();
+  if (budget) {
+    // Ladybug opens a process-lifetime worker pool per Database. Closing the JS
+    // handle does not reclaim those tasks; GraphEngine + RetrievalStore in one
+    // graphd process doubles the pool (~29 → ~51) and trips pids.max. Replace
+    // graphd after the GraphEngine snapshot so retrieval work runs alone, and
+    // wait for full release so old/new pools never overlap.
+    graphd = await replaceGraphdFresh(cwd);
+  }
   let status = await graphRequest('retrieval.status', statusParams(snapshot, true), cwd);
   if (force) {
     await graphRequest('retrieval.invalidate', { identity: snapshot.identity }, cwd);
@@ -274,23 +307,16 @@ export async function ensureRetrieval(
       mode: 0o600,
     });
     try {
-      const budget = runtimeBudgetFromEnvironment();
       if (budget && workerSupportsIndexEmbed()) {
-        try { await graphRequest('graph.engine.release', {}, cwd); } catch {}
         try { await graphRequest('graph.retrieval.release', {}, cwd); } catch {}
-        await forceStopRuntimeOrphans(cwd);
+        await forceStopManagedGraphd(cwd);
+        await waitForGraphdFullyReleased(cwd);
+        await drainRuntimeDescendants(cwd);
         const indexPlan = runWorker(['index-embed', '--input', inputFile], {
           cwd, graphd: null, model, embedOnly: true,
         });
-        await forceStopRuntimeOrphans(cwd);
-        if (budget) {
-          const drainDeadline = Date.now() + 3_000;
-          while (Date.now() < drainDeadline) {
-            await forceStopRuntimeOrphans(cwd);
-            await new Promise((resolve) => setTimeout(resolve, 50));
-          }
-        }
-        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan, { graphdActive: true });
+        await drainRuntimeDescendants(cwd);
+        await applyRetrievalIndexPlan(cwd, snapshot, indexPlan);
       } else {
         runWorker(['index', '--input', inputFile], { cwd, graphd, model });
       }

@@ -1655,6 +1655,7 @@ export function prepareExecutionSnapshot({
         runtimeBaseline.private_root, 'runs', runtimeBaseline.fixture,
         runtimeBaseline.scenario, `sample-${index}`,
       );
+      const nprocCap = path.join(repository, 'packages/cli/native/nproc-cap.so');
       graphdLaunchAuthority.push({
         kind: 'exact',
         argv: [
@@ -1666,6 +1667,7 @@ export function prepareExecutionSnapshot({
         runtime_directory: path.join(nestedRepository, '.git', 'lamina'),
         private_tmp_root: runtimeBaseline.private_root,
         executable_identity: stagedInfrastructure.identities.node,
+        ...(fs.existsSync(nprocCap) ? { allowed_ld_preload: nprocCap } : {}),
       });
     }
   }

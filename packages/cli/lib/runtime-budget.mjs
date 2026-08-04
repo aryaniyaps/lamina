@@ -42,8 +42,14 @@ export function graphdLadybugThreads(budget = runtimeBudgetFromEnvironment()) {
 
 /** Enforce Ladybug query thread caps after Connection init (ADR-015 pids.max). */
 export function applyLadybugThreadCap(connection, budget = runtimeBudgetFromEnvironment()) {
-  if (!budget || !connection?.setMaxNumThreadForExec) return;
-  connection.setMaxNumThreadForExec(Math.max(1, budget.graphd_threads));
+  if (!budget) return;
+  const threads = Math.max(1, budget.graphd_threads);
+  if (connection?.setMaxNumThreadForExec) {
+    connection.setMaxNumThreadForExec(threads);
+  }
+  if (connection?._connection?.setMaxNumThreadForExec) {
+    connection._connection.setMaxNumThreadForExec(threads);
+  }
 }
 
 export function threadLimitEnvironment(threads) {
@@ -76,6 +82,9 @@ export function applyRuntimeBudgetToEnvironment(baseEnv = process.env, budget = 
     LAMINA_RUNTIME_OBSERVATION_RETRIES: String(budget.observation_retries_max),
     ...(budget.defer_graphd_compat_recovery
       ? { LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY: '1' }
+      : {}),
+    ...(budget.defer_retrieval_native_index
+      ? { LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX: '1' }
       : {}),
     ...(budget.idle_graphd_shutdown_ms > 0
       ? { LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS: String(budget.idle_graphd_shutdown_ms) }

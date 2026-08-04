@@ -1,12 +1,12 @@
 {
   "schema": "lamina.runtime-baseline-attribution/v1",
-  "generated_at": "2026-08-04T03:14:58.228Z",
+  "generated_at": "2026-08-04T04:09:15.705Z",
   "fixture": {
     "id": "small",
     "commit": "9506629ed003a561c6627735480cce4994244bb4",
     "url": "https://github.com/alan2207/bulletproof-react.git"
   },
-  "lamina_commit": "79a8c8df706e7a14de95cd6bb77158ca0c31a930",
+  "lamina_commit": "eefd055d4dff4d609d8a94ccff56a14bd5fff25b",
   "host": {
     "platform": "linux",
     "release": "7.0.0-28-generic",
@@ -106,33 +106,33 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 5938,
-        "peak_pids": 15,
-        "peak_memory_bytes": 182448128,
+        "duration_ms": 6243,
+        "peak_pids": 16,
+        "peak_memory_bytes": 182730752,
         "descendants_by_role": {
           "cli": {
             "processes": 4,
             "peak_threads": 2,
-            "peak_rss_bytes": 5890048,
-            "first_seen_ms": 1496,
-            "last_seen_ms": 5112
+            "peak_rss_bytes": 5898240,
+            "first_seen_ms": 1833,
+            "last_seen_ms": 5381
           },
           "observation_worker": {
             "processes": 1,
             "peak_threads": 7,
-            "peak_rss_bytes": 144146432,
-            "first_seen_ms": 2607,
-            "last_seen_ms": 5112
+            "peak_rss_bytes": 143708160,
+            "first_seen_ms": 2876,
+            "last_seen_ms": 5381
           },
           "other": {
-            "processes": 9,
-            "peak_threads": 1,
-            "peak_rss_bytes": 19726336,
-            "first_seen_ms": 3109,
-            "last_seen_ms": 5112
+            "processes": 10,
+            "peak_threads": 2,
+            "peak_rss_bytes": 19775488,
+            "first_seen_ms": 3378,
+            "last_seen_ms": 5381
           }
         },
-        "descendant_count": 14
+        "descendant_count": 15
       }
     },
     {
@@ -144,9 +144,9 @@
         "startup"
       ],
       "phase_time_ns": [
-        327937498,
+        376340600,
         null,
-        686310917,
+        625063356,
         null,
         null,
         null,
@@ -168,40 +168,40 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 6662,
-        "peak_pids": 46,
-        "peak_memory_bytes": 299868160,
+        "duration_ms": 6706,
+        "peak_pids": 25,
+        "peak_memory_bytes": 295194624,
         "descendants_by_role": {
           "cli": {
-            "processes": 7,
+            "processes": 6,
             "peak_threads": 7,
-            "peak_rss_bytes": 66191360,
-            "first_seen_ms": 1306,
-            "last_seen_ms": 5970
+            "peak_rss_bytes": 66400256,
+            "first_seen_ms": 1445,
+            "last_seen_ms": 6089
           },
           "observation_worker": {
             "processes": 1,
             "peak_threads": 7,
-            "peak_rss_bytes": 144543744,
-            "first_seen_ms": 2464,
-            "last_seen_ms": 5970
+            "peak_rss_bytes": 144330752,
+            "first_seen_ms": 2582,
+            "last_seen_ms": 6089
           },
           "other": {
-            "processes": 11,
+            "processes": 9,
             "peak_threads": 2,
-            "peak_rss_bytes": 19701760,
-            "first_seen_ms": 2966,
-            "last_seen_ms": 5970
+            "peak_rss_bytes": 19750912,
+            "first_seen_ms": 3084,
+            "last_seen_ms": 6089
           },
           "graphd": {
             "processes": 1,
-            "peak_threads": 29,
-            "peak_rss_bytes": 206102528,
-            "first_seen_ms": 5219,
-            "last_seen_ms": 5470
+            "peak_threads": 8,
+            "peak_rss_bytes": 204963840,
+            "first_seen_ms": 5337,
+            "last_seen_ms": 5588
           }
         },
-        "descendant_count": 20
+        "descendant_count": 17
       }
     },
     {
@@ -215,7 +215,7 @@
         null,
         null,
         null,
-        20883806012,
+        20759986710,
         null,
         null,
         null,
@@ -245,7 +245,7 @@
         },
         "worker_attempts": 1,
         "graphd_pid": 112,
-        "graphd_threads": 29,
+        "graphd_threads": 8,
         "observation_fan_out": 535,
         "ipc_round_trips": 1,
         "db_checkpoints": 535
@@ -253,40 +253,40 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 26534,
-        "peak_pids": 54,
-        "peak_memory_bytes": 991535104,
+        "duration_ms": 26812,
+        "peak_pids": 33,
+        "peak_memory_bytes": 850935808,
         "descendants_by_role": {
           "cli": {
-            "processes": 6,
+            "processes": 7,
             "peak_threads": 7,
-            "peak_rss_bytes": 67608576,
-            "first_seen_ms": 1533,
-            "last_seen_ms": 25887
+            "peak_rss_bytes": 67436544,
+            "first_seen_ms": 1603,
+            "last_seen_ms": 26102
           },
           "observation_worker": {
             "processes": 3,
             "peak_threads": 7,
-            "peak_rss_bytes": 143699968,
-            "first_seen_ms": 2606,
-            "last_seen_ms": 25887
+            "peak_rss_bytes": 143405056,
+            "first_seen_ms": 2821,
+            "last_seen_ms": 26102
           },
           "other": {
             "processes": 8,
-            "peak_threads": 2,
-            "peak_rss_bytes": 19701760,
-            "first_seen_ms": 3109,
-            "last_seen_ms": 25887
+            "peak_threads": 1,
+            "peak_rss_bytes": 19705856,
+            "first_seen_ms": 3322,
+            "last_seen_ms": 25601
           },
           "graphd": {
             "processes": 1,
-            "peak_threads": 29,
-            "peak_rss_bytes": 635604992,
-            "first_seen_ms": 5109,
-            "last_seen_ms": 25386
+            "peak_threads": 8,
+            "peak_rss_bytes": 502575104,
+            "first_seen_ms": 5576,
+            "last_seen_ms": 25351
           }
         },
-        "descendant_count": 18
+        "descendant_count": 19
       }
     },
     {
@@ -303,55 +303,66 @@
       "safe_runner": {
         "outcome": "safety_limit_exceeded",
         "limit": "pids",
-        "duration_ms": 28760,
+        "duration_ms": 29385,
         "peak_pids": 64,
-        "peak_memory_bytes": 1003409408,
+        "peak_memory_bytes": 851972096,
         "descendants_by_role": {
           "cli": {
             "processes": 6,
             "peak_threads": 7,
-            "peak_rss_bytes": 230227968,
-            "first_seen_ms": 1366,
-            "last_seen_ms": 28210
+            "peak_rss_bytes": 232124416,
+            "first_seen_ms": 1478,
+            "last_seen_ms": 28611
           },
           "retrieval_worker": {
-            "processes": 1,
-            "peak_threads": 7,
-            "peak_rss_bytes": 143826944,
-            "first_seen_ms": 2419,
-            "last_seen_ms": 26206
+            "processes": 3,
+            "peak_threads": 38,
+            "peak_rss_bytes": 143642624,
+            "first_seen_ms": 2582,
+            "last_seen_ms": 28611
           },
           "other": {
-            "processes": 8,
+            "processes": 11,
             "peak_threads": 2,
-            "peak_rss_bytes": 19767296,
-            "first_seen_ms": 2920,
-            "last_seen_ms": 4674
+            "peak_rss_bytes": 19746816,
+            "first_seen_ms": 3085,
+            "last_seen_ms": 26860
           },
           "graphd": {
-            "processes": 1,
-            "peak_threads": 47,
-            "peak_rss_bytes": 739221504,
-            "first_seen_ms": 4924,
-            "last_seen_ms": 28210
+            "processes": 3,
+            "peak_threads": 8,
+            "peak_rss_bytes": 505466880,
+            "first_seen_ms": 5086,
+            "last_seen_ms": 28611
           },
           "observation_worker": {
             "processes": 2,
             "peak_threads": 7,
-            "peak_rss_bytes": 69812224,
-            "first_seen_ms": 5425,
-            "last_seen_ms": 25454
+            "peak_rss_bytes": 69771264,
+            "first_seen_ms": 5586,
+            "last_seen_ms": 24358
           }
         },
-        "descendant_count": 18
+        "descendant_count": 25
       }
     }
   ],
   "dominant_costs": [
     {
+      "label": "CocoIndex worker",
+      "peak_threads": 38,
+      "peak_rss_bytes": 144330752,
+      "scenarios": [
+        "doctor-status-startup",
+        "footprint",
+        "initial-observation",
+        "initial-retrieval-readiness"
+      ]
+    },
+    {
       "label": "graphd startup",
-      "peak_threads": 47,
-      "peak_rss_bytes": 739221504,
+      "peak_threads": 8,
+      "peak_rss_bytes": 505466880,
       "scenarios": [
         "doctor-status-startup",
         "initial-observation",
@@ -361,18 +372,7 @@
     {
       "label": "CLI dispatch",
       "peak_threads": 7,
-      "peak_rss_bytes": 230227968,
-      "scenarios": [
-        "doctor-status-startup",
-        "footprint",
-        "initial-observation",
-        "initial-retrieval-readiness"
-      ]
-    },
-    {
-      "label": "CocoIndex worker",
-      "peak_threads": 7,
-      "peak_rss_bytes": 144543744,
+      "peak_rss_bytes": 232124416,
       "scenarios": [
         "doctor-status-startup",
         "footprint",
@@ -383,7 +383,7 @@
     {
       "label": "other",
       "peak_threads": 2,
-      "peak_rss_bytes": 19767296,
+      "peak_rss_bytes": 19775488,
       "scenarios": [
         "doctor-status-startup",
         "footprint",
@@ -398,18 +398,18 @@
       "outcome": "safety_limit_exceeded",
       "limit": "pids",
       "peak_pids": 64,
-      "peak_memory_bytes": 1003409408,
+      "peak_memory_bytes": 851972096,
       "dominant_roles": [
         {
+          "role": "retrieval_worker",
+          "peak_threads": 38
+        },
+        {
           "role": "graphd",
-          "peak_threads": 47
+          "peak_threads": 8
         },
         {
           "role": "cli",
-          "peak_threads": 7
-        },
-        {
-          "role": "retrieval_worker",
           "peak_threads": 7
         },
         {

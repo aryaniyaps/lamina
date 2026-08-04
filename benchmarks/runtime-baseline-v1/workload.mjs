@@ -590,18 +590,26 @@ async function runSample({ fixture, manifest, source, scenario, index }) {
     } else if (scenario === 'initial-retrieval-readiness') {
       await releaseGraphdBeforeObservationCli(repository);
       tracker.begin('observation');
-      measurement = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'retrieval-readiness']));
+      const observation = timeSync(() => runTrackedCli(tracker, repository, ['graph', 'observe']));
       tracker.end();
+      await releaseRuntimeBetweenCliPhases(repository);
       tracker.begin('retrieval_readiness');
+      const retrieval = timeSync(() => runTrackedCli(tracker, repository, ['context', 'rebuild']));
       tracker.end();
-      const retrievalPrepared = measurement.value?.retrieval;
-      const retrievalStatus = retrievalPrepared?.status || retrievalPrepared;
+      measurement = {
+        wall_time_ns: Number(observation.wall_time_ns || 0) + Number(retrieval.wall_time_ns || 0),
+        value: {
+          observation: observation.value,
+          retrieval: retrieval.value,
+        },
+      };
+      const retrievalStatus = retrieval.value?.status || retrieval.value;
       diagnostics = attachProductDiagnostics({
-        ...compactDiagnostics(retrievalStatus || retrievalPrepared || measurement.value),
+        ...compactDiagnostics(retrievalStatus || retrieval.value),
         inventory: await inventoryFromRetrievalStatus(repository, metadata, retrievalStatus),
-      }, retrievalStatus || retrievalPrepared || measurement.value, tracker);
-      if (measurement.value?.observation?.attribution) {
-        tracker.mergeProductAttribution(measurement.value.observation.attribution);
+      }, retrievalStatus || retrieval.value, tracker);
+      if (observation.value?.attribution) {
+        tracker.mergeProductAttribution(observation.value.attribution);
       }
     } else if (scenario === 'first-useful-preparation') {
       tracker.begin('observation');

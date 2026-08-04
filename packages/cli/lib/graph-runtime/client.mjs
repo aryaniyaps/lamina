@@ -27,6 +27,20 @@ import {
   runtimePaths,
 } from './util.mjs';
 
+const PACKAGE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const NPROC_CAP_SO = path.join(PACKAGE_ROOT, 'native', 'nproc-cap.so');
+
+/** Ladybug Database pools size to hardware_concurrency; preload caps visible CPUs to 1. */
+function graphdNprocCapPreload(budget = runtimeBudgetFromEnvironment()) {
+  if (!budget || process.platform !== 'linux') return null;
+  try {
+    fs.accessSync(NPROC_CAP_SO, fs.constants.R_OK);
+    return NPROC_CAP_SO;
+  } catch {
+    return null;
+  }
+}
+
 export function daemonCompatibility(identity) {
   const capabilities = new Set(Array.isArray(identity?.capabilities) ? identity.capabilities : []);
   const missingCapabilities = REQUIRED_GRAPH_CAPABILITIES.filter((item) => !capabilities.has(item));
@@ -73,6 +87,11 @@ export function graphdEnvironmentFor(
   const budget = runtimeBudgetFromEnvironment(inheritedEnvironment);
   Object.assign(environment, applyRuntimeBudgetToEnvironment(environment, budget));
   Object.assign(environment, graphdThreadEnvironment(inheritedEnvironment));
+  const nprocCap = graphdNprocCapPreload(budget);
+  if (nprocCap) {
+    // isGraphdExecutionHook strips LD_*; re-apply only our audited cap library.
+    environment.LD_PRELOAD = nprocCap;
+  }
   if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
   // dependencies from the process search path, which must be established when

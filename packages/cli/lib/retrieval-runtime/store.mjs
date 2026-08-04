@@ -211,6 +211,7 @@ export class RetrievalStore {
 
   rebuildNativeIndexes() {
     if (process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') return;
+    if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX === '1') return;
     if (runtimeBudgetFromEnvironment()?.defer_retrieval_native_index) return;
     this.ensureExtensions();
     const indexes = this.connection.querySync('CALL SHOW_INDEXES() RETURN *').getAllSync();
@@ -500,6 +501,64 @@ export class RetrievalStore {
       `MATCH (m:RetrievalPending {identity: $identity}) RETURN ${PENDING_MANIFEST_RETURN}`,
       { identity },
     )[0];
+    const budget = runtimeBudgetFromEnvironment();
+    if (budget) {
+      const committedCount = this.query(
+        'MATCH (m:RetrievalMember) WHERE m.identity = $identity AND m.generation = $generation RETURN m.document_id AS id',
+        { identity, generation },
+      ).length;
+      if (committedCount !== Number(pending.expected_count)) {
+        throw retrievalFailure('Retrieval generation item count is incomplete; it was not activated.', {
+          expected_count: Number(pending.expected_count),
+          committed_count: committedCount,
+        });
+      }
+      try {
+        applyLadybugThreadCap(this.connection);
+        this.transaction(() => {
+          this.query('MATCH (m:RetrievalManifest {identity: $identity}) DELETE m', { identity });
+          this.query(
+            `CREATE (m:RetrievalManifest {
+              identity: $identity, generation: $generation, graph_version: $graph_version,
+              source_revision: $source_revision, repository_revision: $repository_revision,
+              branch: $branch, worktree: $worktree, model_digest: $model_digest,
+              observation_generation: $observation_generation,
+              observation_membership_digest: $observation_membership_digest,
+              index_digest: $index_digest, schema_version: $schema_version,
+              expected_count: $expected_count, committed_count: $committed_count,
+              updated_at: $updated_at
+            })`,
+            {
+              ...pending,
+              observation_generation: pending.observation_generation || '',
+              observation_membership_digest: pending.observation_membership_digest || '',
+              committed_count: committedCount,
+              updated_at: new Date().toISOString(),
+            },
+          );
+          this.query('MATCH (p:RetrievalPending {identity: $identity}) DELETE p', { identity });
+          this.query(
+            `MATCH (m:RetrievalMember)
+             WHERE m.identity = $identity AND m.generation <> $generation
+             DELETE m`,
+            { identity, generation },
+          );
+        });
+        this.clearFailure();
+      } catch (error) {
+        this.recordFailure('retrieval_activation_failed', error);
+        throw error;
+      }
+      return {
+        identity,
+        generation,
+        committed: true,
+        expected_count: Number(pending.expected_count),
+        committed_count: committedCount,
+        index_digest: pending.index_digest,
+      };
+    }
+
     const memberRows = this.query(
       'MATCH (m:RetrievalMember) WHERE m.identity = $identity AND m.generation = $generation RETURN m.document_id AS id',
       { identity, generation },
@@ -522,7 +581,9 @@ export class RetrievalStore {
       });
     }
     try {
+      applyLadybugThreadCap(this.connection);
       this.rebuildNativeIndexes();
+      applyLadybugThreadCap(this.connection);
       this.transaction(() => {
         this.query('MATCH (m:RetrievalManifest {identity: $identity}) DELETE m', { identity });
         this.query(
@@ -545,15 +606,12 @@ export class RetrievalStore {
           },
         );
         this.query('MATCH (p:RetrievalPending {identity: $identity}) DELETE p', { identity });
-        const obsoleteMembers = this.query(
+        this.query(
           `MATCH (m:RetrievalMember)
            WHERE m.identity = $identity AND m.generation <> $generation
-           RETURN m.id AS id`,
+           DELETE m`,
           { identity, generation },
         );
-        for (const member of obsoleteMembers) {
-          this.query('MATCH (m:RetrievalMember {id: $id}) DELETE m', { id: member.id });
-        }
         const referenced = new Set(this.query(
           'MATCH (m:RetrievalMember) RETURN m.document_id AS id',
         ).map((item) => item.id));

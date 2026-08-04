@@ -539,6 +539,15 @@ try {
   assert.equal(supervisedGraphdEnv.LAMINA_SAFE_RUNNER_BROKER,
     '/run/lamina-safe/broker.sock');
   assert.equal(supervisedGraphdEnv.LAMINA_SAFE_GRAPHD_RESERVATION, 'sealed-reservation');
+  assert.ok(
+    typeof supervisedGraphdEnv.LD_PRELOAD === 'string'
+      && supervisedGraphdEnv.LD_PRELOAD.endsWith(`${path.sep}native${path.sep}nproc-cap.so`),
+    'bounded graphd must preload the audited nproc cap',
+  );
+  assert.equal(graphdEnvironmentFor({
+    PATH: '/usr/bin',
+    LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '0',
+  }, { platform: 'linux' }).LD_PRELOAD, undefined);
   for (const inherited of [
     { Path: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
     { PATH: 'C:\\Program Files\\Git\\cmd;C:\\Windows\\System32' },
