@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { Connection, Database, json } from '@ladybugdb/core';
+import { graphdLadybugThreads } from '../runtime-budget.mjs';
 import {
   RETRIEVAL_AMBIGUITY_MARGIN,
   RETRIEVAL_DENSE_RELEVANCE,
@@ -222,7 +223,10 @@ export class RetrievalStore {
     fs.mkdirSync(path.dirname(this.paths.retrieval), { recursive: true, mode: 0o700 });
     try {
       this.database = new Database(this.paths.retrieval);
-      this.connection = new Connection(this.database);
+      const ladybugThreads = graphdLadybugThreads();
+      this.connection = ladybugThreads
+        ? new Connection(this.database, ladybugThreads)
+        : new Connection(this.database);
       this.connection.initSync();
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     } catch (error) {
@@ -232,10 +236,32 @@ export class RetrievalStore {
         try { fs.rmSync(file, { recursive: true, force: true }); } catch {}
       }
       this.database = new Database(this.paths.retrieval);
-      this.connection = new Connection(this.database);
+      const ladybugThreads = graphdLadybugThreads();
+      this.connection = ladybugThreads
+        ? new Connection(this.database, ladybugThreads)
+        : new Connection(this.database);
       this.connection.initSync();
       for (const statement of RETRIEVAL_SCHEMA) this.connection.querySync(statement);
     }
+    this.recoverInterruptedPendingGenerations();
+  }
+
+  recoverInterruptedPendingGenerations() {
+    const pending = this.query(
+      'MATCH (p:RetrievalPending) RETURN p.identity AS identity, p.generation AS generation',
+    );
+    if (!pending.length) return { recovered: 0 };
+    this.transaction(() => {
+      for (const row of pending) {
+        this.query(
+          'MATCH (m:RetrievalMember) WHERE m.identity = $identity AND m.generation = $generation DELETE m',
+          row,
+        );
+        this.query('MATCH (p:RetrievalPending {identity: $identity}) DELETE p', { identity: row.identity });
+      }
+    });
+    try { this.connection.querySync('CHECKPOINT'); } catch {}
+    return { recovered: pending.length };
   }
 
   close() {

@@ -1,13 +1,23 @@
 import fs from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { digest, graphSocketChildPath } from '../graph-runtime/util.mjs';
+import { workerThreadEnvironment, observationWorkerThreadEnvironment } from '../runtime-budget.mjs';
 
 export const OBSERVATION_BACKEND = 'cocoindex';
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function managedWorker() {
+  if (process.env.LAMINA_OBSERVATION_WORKER) {
+    const configured = path.resolve(process.env.LAMINA_OBSERVATION_WORKER);
+    try {
+      fs.accessSync(configured, process.platform === 'win32' ? fs.constants.F_OK : fs.constants.X_OK);
+      return configured;
+    } catch {
+      return null;
+    }
+  }
   const executable = process.platform === 'win32' ? 'cocoindex-worker.exe' : 'cocoindex-worker';
   const worker = path.join(packageRoot, 'observation-runtime', executable);
   try {
@@ -25,6 +35,63 @@ function unavailable(message, details = {}) {
   return error;
 }
 
+function observationFailure(status, signal, stderr, stdout) {
+  const error = new Error(`CocoIndex observation exited with status ${status ?? 1}.`);
+  error.code = 'LAMINA_OBSERVATION_FAILED';
+  error.details = {
+    backend: OBSERVATION_BACKEND,
+    status: status ?? 1,
+    signal: signal || null,
+    stderr: String(stderr || '').slice(-4_000),
+    stdout: String(stdout || '').slice(-4_000),
+  };
+  return error;
+}
+
+export function runLiveObservationProcess({ command, args, cwd, environment, cancellation }) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: environment,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stderr = '';
+    let stdout = '';
+    let settled = false;
+    const finish = (handler) => {
+      if (settled) return;
+      settled = true;
+      handler();
+    };
+    const stopChild = (signal = 'SIGTERM') => {
+      try { process.kill(-child.pid, signal); } catch {
+        try { child.kill(signal); } catch {}
+      }
+    };
+    const onCancel = () => {
+      stopChild('SIGTERM');
+    };
+    cancellation?.onCleanup?.(onCancel);
+    child.stdout.on('data', (chunk) => { stdout = `${stdout}${chunk}`.slice(-4_000); });
+    child.stderr.on('data', (chunk) => { stderr = `${stderr}${chunk}`.slice(-4_000); });
+    child.on('error', (error) => finish(() => reject(unavailable(
+      'CocoIndex worker is unavailable. Reinstall this Lamina release to restore its private worker.',
+      { backend: OBSERVATION_BACKEND, cause: error.message },
+    ))));
+    child.on('exit', (status, signal) => finish(() => {
+      if (cancellation?.cancelled) {
+        const error = new Error('Observation was cancelled before completion.');
+        error.code = 'LAMINA_OBSERVATION_CANCELLED';
+        error.details = { backend: OBSERVATION_BACKEND, status, signal, stderr, stdout };
+        reject(error);
+        return;
+      }
+      if ((status ?? 1) !== 0) reject(observationFailure(status, signal, stderr, stdout));
+      else resolve({ status, stderr, stdout, cancelled: false });
+    }));
+  });
+}
+
 export function runObservationProcess({ command, args, cwd, environment }) {
   // CocoIndex can emit more than Node's 1 MiB spawnSync default while syncing
   // dependencies or reporting a large source scan. We retain only the final
@@ -38,10 +105,7 @@ export function runObservationProcess({ command, args, cwd, environment }) {
   });
   if (result.error) throw unavailable('CocoIndex worker is unavailable. Reinstall this Lamina release to restore its private worker.', { backend: OBSERVATION_BACKEND, cause: result.error.message });
   if ((result.status ?? 1) !== 0) {
-    const error = new Error(`CocoIndex observation exited with status ${result.status ?? 1}.`);
-    error.code = 'LAMINA_OBSERVATION_FAILED';
-    error.details = { backend: OBSERVATION_BACKEND, status: result.status ?? 1, signal: result.signal || null, stderr: String(result.stderr || '').slice(-4_000), stdout: String(result.stdout || '').slice(-4_000) };
-    throw error;
+    throw observationFailure(result.status, result.signal, result.stderr, result.stdout);
   }
   return {
     status: result.status,
@@ -51,10 +115,13 @@ export function runObservationProcess({ command, args, cwd, environment }) {
 }
 
 /** Run CocoIndex without exposing a Python/uv prerequisite to release users. */
-export function runCocoIndex({ paths, generation, live, ignore, extractorDigest }) {
+export async function runCocoIndex({
+  paths, generation, live, ignore, extractorDigest, cancellation = null,
+}) {
   const worker = managedWorker();
   const environment = {
     ...process.env,
+    ...observationWorkerThreadEnvironment(),
     COCOINDEX_DB: path.join(paths.cocoindex, 'state.db'),
     PYTHONDONTWRITEBYTECODE: '1',
     PYTHONNOUSERSITE: '1',
@@ -66,6 +133,7 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
     LAMINA_IGNORE_DIGEST: digest('ignore', ignore),
     LAMINA_EXTRACTOR_DIGEST: extractorDigest,
     LAMINA_OBSERVATION_GENERATION: generation,
+    LAMINA_OBSERVATION_LIVE: live ? '1' : '0',
   };
   let command;
   let args;
@@ -86,6 +154,15 @@ export function runCocoIndex({ paths, generation, live, ignore, extractorDigest 
     if (live) args.push('--live');
     args.push('cocoindex_app.py');
     environment.UV_PROJECT_ENVIRONMENT = path.join(paths.cocoindex, 'python-env');
+  }
+  if (live) {
+    return runLiveObservationProcess({
+      command,
+      args,
+      cwd: packageRoot,
+      environment,
+      cancellation,
+    });
   }
   return runObservationProcess({
     command,

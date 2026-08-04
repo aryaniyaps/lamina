@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** graphd: sole Ladybug writer for canonical graph.lbdb and derived retrieval.lbdb (#69). */
 import fs from 'node:fs';
 import net from 'node:net';
 import crypto from 'node:crypto';
@@ -240,16 +241,21 @@ function shutdown() {
     try { retrievalEmbedder.close(); } catch {}
     try { retrieval.close(); } catch {}
     try { engine.close(); } catch {}
-    if (process.platform !== 'win32') {
-      try { fs.unlinkSync(socketPath); } catch {}
-    }
-    try {
-      const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
-      if (lock?.pid === process.pid) fs.unlinkSync(paths.lock);
-    } catch {}
     process.exit(0);
   });
 }
+
+function removeRuntimeArtifacts() {
+  if (process.platform !== 'win32') {
+    try { fs.unlinkSync(socketPath); } catch {}
+  }
+  try {
+    const lock = parseDaemonLock(fs.readFileSync(paths.lock, 'utf8'));
+    if (lock?.pid === process.pid) fs.unlinkSync(paths.lock);
+  } catch {}
+}
+
+process.on('exit', removeRuntimeArtifacts);
 
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);

@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
+// This suite keeps a warm graphd across sequential CLI invocations via graphRequest.
+process.env.LAMINA_RUNTIME_PERSIST_GRAPHD = '1';
 import {
   graphRequest,
   stopIncompatibleServer,

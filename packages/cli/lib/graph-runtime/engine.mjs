@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Database, Connection, json } from '@ladybugdb/core';
+import { graphdLadybugThreads } from '../runtime-budget.mjs';
 import { EPISTEMIC_BY_INGRESS, ERROR, RESOURCE_KINDS, SCHEMA, VIEW_KINDS } from './constants.mjs';
 import { canonical, digest, ensureRuntime, fail, git, repositoryContext, safeJson } from './util.mjs';
 
@@ -627,7 +628,10 @@ export class GraphEngine {
       fs.writeFileSync(generationPath, `${digest('generation', { nonce: cryptoRandom(), database: paths.database })}\n`);
     }
     this.database = new Database(paths.database);
-    this.connection = new Connection(this.database);
+    const ladybugThreads = graphdLadybugThreads();
+    this.connection = ladybugThreads
+      ? new Connection(this.database, ladybugThreads)
+      : new Connection(this.database);
     this.connection.initSync();
     for (const statement of SCHEMA) this.connection.querySync(statement);
   }
