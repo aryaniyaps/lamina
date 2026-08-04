@@ -17,6 +17,7 @@ import {
   boundedHybridCandidateIds,
   boundedHybridRanking,
   classifyWorkflowOutcome,
+  denseRanking,
   fuseRankings,
   retrievalQueryTerms,
 } from './scoring.mjs';
@@ -53,6 +54,15 @@ function rows(result) {
 
 function hash(value) {
   return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+/** Recover a source path when Ladybug returns an empty `path` property. */
+function documentSourcePath(document) {
+  if (document?.path) return document.path;
+  const fromText = /^file: ([^\n]+)/.exec(document?.text || '');
+  if (fromText?.[1]) return fromText[1];
+  const fromKey = /^source:(.+):(?:<module>|[A-Za-z_$][\w$]*):\d+:\d+$/.exec(document?.logical_key || '');
+  return fromKey?.[1] || '';
 }
 
 function canonicalIndexDigest(items) {
@@ -209,31 +219,37 @@ export class RetrievalStore {
     this.extensionsLoaded = true;
   }
 
-  rebuildNativeIndexes({ force = false } = {}) {
+  deferRetrievalVectorIndex(force = false) {
+    if (force) return false;
+    if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_VECTOR_INDEX === '1') return true;
+    if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX === '1') return true;
+    const budget = runtimeBudgetFromEnvironment();
+    return Boolean(budget?.defer_retrieval_vector_index ?? budget?.defer_retrieval_native_index);
+  }
+
+  rebuildNativeIndexes({ force = false, fts = true, vector = true } = {}) {
     if (process.env.LAMINA_TEST_RETRIEVAL_NO_EXTENSIONS === '1') return;
-    // Bounded activation defers CREATE_*_INDEX to keep apply under pids.max.
-    // Query/recovery paths must still materialize indexes (force:true).
-    if (!force) {
-      if (process.env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX === '1') return;
-      if (runtimeBudgetFromEnvironment()?.defer_retrieval_native_index) return;
-    }
+    const buildVector = vector && !this.deferRetrievalVectorIndex(force);
+    if (!fts && !buildVector) return;
     this.ensureExtensions();
     const indexes = this.connection.querySync('CALL SHOW_INDEXES() RETURN *').getAllSync();
-    for (const index of indexes) {
-      const name = index.index_name;
-      if (name === 'retrieval_fts') {
+    const indexNames = new Set(indexes.map((item) => item.index_name));
+    if (fts && (force || !indexNames.has('retrieval_fts'))) {
+      if (indexNames.has('retrieval_fts')) {
         this.connection.querySync("CALL DROP_FTS_INDEX('RetrievalDocument', 'retrieval_fts')");
       }
-      if (name === 'retrieval_vector') {
+      this.connection.querySync(
+        "CALL CREATE_FTS_INDEX('RetrievalDocument', 'retrieval_fts', ['text'], stemmer := 'porter')",
+      );
+    }
+    if (buildVector && (force || !indexNames.has('retrieval_vector'))) {
+      if (indexNames.has('retrieval_vector')) {
         this.connection.querySync("CALL DROP_VECTOR_INDEX('RetrievalDocument', 'retrieval_vector')");
       }
+      this.connection.querySync(
+        "CALL CREATE_VECTOR_INDEX('RetrievalDocument', 'retrieval_vector', 'embedding', metric := 'cosine')",
+      );
     }
-    this.connection.querySync(
-      "CALL CREATE_FTS_INDEX('RetrievalDocument', 'retrieval_fts', ['text'], stemmer := 'porter')",
-    );
-    this.connection.querySync(
-      "CALL CREATE_VECTOR_INDEX('RetrievalDocument', 'retrieval_vector', 'embedding', metric := 'cosine')",
-    );
   }
 
   nativeHybridRanking(documents, query, embedding, { lexicalOnly = false, retry = true } = {}) {
@@ -243,6 +259,7 @@ export class RetrievalStore {
         : boundedHybridRanking(documents, query, embedding);
     }
     this.ensureExtensions();
+    const deferVector = this.deferRetrievalVectorIndex(false);
     const byId = new Map(documents.map((document) => [document.id, document]));
     const normalizedQuery = [...new Set(retrievalQueryTerms(query))].join(' ');
     try {
@@ -265,17 +282,24 @@ export class RetrievalStore {
       let dense = [];
       if (!lexicalOnly && documents.length) {
         const denseLimit = Math.min(RETRIEVAL_DENSE_CANDIDATE_LIMIT, documents.length);
-        dense = this.query(
-          `CALL QUERY_VECTOR_INDEX(
-             'RetrievalDocument', 'retrieval_vector', $embedding, $limit, efs := 500
-           )
-           RETURN node.id AS id, distance
-           ORDER BY distance, id`,
-          { embedding, limit: denseLimit },
-        ).filter((item) => byId.has(item.id)).map((item) => ({
-          document: byId.get(item.id),
-          score: 1 - Number(item.distance),
-        }));
+        if (deferVector) {
+          dense = denseRanking(documents, embedding).slice(0, denseLimit).map((item) => ({
+            document: item.document,
+            score: item.score,
+          }));
+        } else {
+          dense = this.query(
+            `CALL QUERY_VECTOR_INDEX(
+               'RetrievalDocument', 'retrieval_vector', $embedding, $limit, efs := 500
+             )
+             RETURN node.id AS id, distance
+             ORDER BY distance, id`,
+            { embedding, limit: denseLimit },
+          ).filter((item) => byId.has(item.id)).map((item) => ({
+            document: byId.get(item.id),
+            score: 1 - Number(item.distance),
+          }));
+        }
       }
       if (lexicalOnly) {
         return fuseRankings(documents, query, lexical, []);
@@ -291,7 +315,11 @@ export class RetrievalStore {
     } catch (error) {
       this.recordFailure('retrieval_native_index_corrupt', error);
       if (!retry) throw error;
-      this.rebuildNativeIndexes({ force: true });
+      this.rebuildNativeIndexes({
+        force: true,
+        fts: true,
+        vector: !this.deferRetrievalVectorIndex(false),
+      });
       return this.nativeHybridRanking(
         documents,
         query,
@@ -546,6 +574,13 @@ export class RetrievalStore {
         });
         this.connection.querySync('CHECKPOINT');
         this.clearFailure();
+        try {
+          applyLadybugThreadCap(this.connection);
+          this.rebuildNativeIndexes({ fts: true, vector: false });
+        } catch (indexError) {
+          this.recordFailure('retrieval_activation_failed', indexError);
+          throw indexError;
+        }
       } catch (error) {
         this.recordFailure('retrieval_activation_failed', error);
         throw error;
@@ -681,11 +716,13 @@ export class RetrievalStore {
     const seenSymbols = new Set();
     const sourceChunks = [];
     for (const row of sourceRanking) {
-      const key = `${row.document.path}:${row.document.symbol}`;
+      const filePath = documentSourcePath(row.document);
+      const key = `${filePath}:${row.document.symbol}`;
       if (seenSymbols.has(key)) continue;
       seenSymbols.add(key);
       sourceChunks.push({
-        file: row.document.path,
+        file: filePath,
+        path: filePath,
         symbol: row.document.symbol || null,
         start_line: Number(row.document.start_line),
         end_line: Number(row.document.end_line),

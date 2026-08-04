@@ -39,7 +39,9 @@ assert.equal(maxObservationAttempts(budget), 2);
 const applied = applyRuntimeBudgetToEnvironment({ HOME: '/tmp' }, budget);
 assert.equal(applied.LAMINA_RUNTIME_BOUNDED_TOPOLOGY, '1');
 assert.equal(applied.LAMINA_RUNTIME_GRAPHD_THREADS, '2');
+assert.equal(applied.LAMINA_RUNTIME_DEFER_RETRIEVAL_VECTOR_INDEX, '1');
 assert.equal(applied.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX, '1');
+assert.equal(budget.defer_retrieval_vector_index, true);
 assert.equal(applied.HOME, '/tmp');
 
 const threadEnv = threadLimitEnvironment(4);

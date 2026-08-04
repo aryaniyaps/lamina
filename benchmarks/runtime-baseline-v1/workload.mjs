@@ -485,6 +485,10 @@ async function disposeRepository(repository) {
   };
 }
 
+function sourceChunkPath(item) {
+  return item?.path || item?.file || '';
+}
+
 function compactDiagnostics(value) {
   return {
     schema: value?.schema || null,
@@ -504,7 +508,7 @@ function compactDiagnostics(value) {
     selected_workflow_ids: value?.retrieval?.selected_workflow_ids || null,
     source_chunk_count: Array.isArray(value?.retrieval?.source_chunks) ? value.retrieval.source_chunks.length : null,
     source_chunk_paths: Array.isArray(value?.retrieval?.source_chunks)
-      ? [...new Set(value.retrieval.source_chunks.map((item) => item.path).filter(Boolean))].slice(0, 5) : null,
+      ? [...new Set(value.retrieval.source_chunks.map(sourceChunkPath).filter(Boolean))].slice(0, 5) : null,
     packet_id: value?.packet_id || null,
     obligation_count: Array.isArray(value?.obligations) ? value.obligations.length : null,
     experience_case_count: Array.isArray(value?.experience_cases) ? value.experience_cases.length : null,
@@ -520,7 +524,7 @@ function assertUsefulPacket(packet, expectedWorkflow) {
     || retrieval?.degradation !== null
     || JSON.stringify(retrieval?.selected_workflow_ids) !== JSON.stringify([expectedWorkflow])
     || !Array.isArray(retrieval?.source_chunks) || retrieval.source_chunks.length === 0
-    || !retrieval.source_chunks.some((item) => typeof item?.path === 'string' && item.path.length > 0)) {
+    || !retrieval.source_chunks.some((item) => sourceChunkPath(item).length > 0)) {
     fail('work prepare did not produce a correct useful packet from the real retrieval path', {
       diagnostics: compactDiagnostics(packet),
     });

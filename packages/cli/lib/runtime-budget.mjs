@@ -22,6 +22,10 @@ function boundedTopologyExplicitlyDisabled(env = process.env) {
 
 export function runtimeBudgetFromEnvironment(env = process.env) {
   if (boundedTopologyExplicitlyDisabled(env)) return null;
+  // Vector native index is deferred by default under bounded topology; FTS/BM25 still
+  // materializes during activation so hybrid query can run without a pids spike.
+  const deferRetrievalVectorIndex = env.LAMINA_RUNTIME_DEFER_RETRIEVAL_VECTOR_INDEX !== '0' &&
+    env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX !== '0';
   return Object.freeze({
     enabled: true,
     graphd_threads: readPositiveInt(env.LAMINA_RUNTIME_GRAPHD_THREADS, 1),
@@ -30,7 +34,8 @@ export function runtimeBudgetFromEnvironment(env = process.env) {
     observation_retries_max: readPositiveInt(env.LAMINA_RUNTIME_OBSERVATION_RETRIES, 0),
     retrieval_batch_size: readPositiveInt(env.LAMINA_RUNTIME_RETRIEVAL_BATCH, 1),
     defer_graphd_compat_recovery: env.LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY !== '0',
-    defer_retrieval_native_index: env.LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX !== '0',
+    defer_retrieval_vector_index: deferRetrievalVectorIndex,
+    defer_retrieval_native_index: deferRetrievalVectorIndex,
     idle_graphd_shutdown_ms: readPositiveInt(env.LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS, 0),
   });
 }
@@ -83,8 +88,11 @@ export function applyRuntimeBudgetToEnvironment(baseEnv = process.env, budget = 
     ...(budget.defer_graphd_compat_recovery
       ? { LAMINA_RUNTIME_DEFER_GRAPHD_COMPAT_RECOVERY: '1' }
       : {}),
-    ...(budget.defer_retrieval_native_index
-      ? { LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX: '1' }
+    ...(budget.defer_retrieval_vector_index
+      ? {
+          LAMINA_RUNTIME_DEFER_RETRIEVAL_VECTOR_INDEX: '1',
+          LAMINA_RUNTIME_DEFER_RETRIEVAL_NATIVE_INDEX: '1',
+        }
       : {}),
     ...(budget.idle_graphd_shutdown_ms > 0
       ? { LAMINA_RUNTIME_IDLE_GRAPHD_SHUTDOWN_MS: String(budget.idle_graphd_shutdown_ms) }
