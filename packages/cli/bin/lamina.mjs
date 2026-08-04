@@ -4,6 +4,7 @@ import path from 'node:path';
 import { graphRequest } from '../lib/graph-runtime/client.mjs';
 import { CLI_VERSION, doctorReport } from '../lib/doctor.mjs';
 import { runObservation } from '../lib/observe.mjs';
+import { runRetrievalReadinessBaseline } from '../lib/retrieval-readiness-baseline.mjs';
 import { rebuildRetrieval, retrievalStatus } from '../lib/retrieval-runtime/process.mjs';
 import { finalizeRuntimeCommand } from '../lib/runtime-lifecycle.mjs';
 import { checkWork, deriveWorkMap, prepareWork, verifyWork } from '../lib/work-context.mjs';
@@ -290,6 +291,9 @@ async function run() {
     }
     if (command === 'rebuild-observations') {
       return runObservation({ invalidate: true });
+    }
+    if (command === 'retrieval-readiness') {
+      return runRetrievalReadinessBaseline();
     }
   }
   if (domain === 'session') {

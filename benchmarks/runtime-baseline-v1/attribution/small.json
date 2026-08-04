@@ -1,12 +1,12 @@
 {
   "schema": "lamina.runtime-baseline-attribution/v1",
-  "generated_at": "2026-08-04T01:18:27.878Z",
+  "generated_at": "2026-08-04T03:14:58.228Z",
   "fixture": {
     "id": "small",
     "commit": "9506629ed003a561c6627735480cce4994244bb4",
     "url": "https://github.com/alan2207/bulletproof-react.git"
   },
-  "lamina_commit": "dcc7b8f4ce0a28304d7e1a482a72a39a0a8caead",
+  "lamina_commit": "79a8c8df706e7a14de95cd6bb77158ca0c31a930",
   "host": {
     "platform": "linux",
     "release": "7.0.0-28-generic",
@@ -106,40 +106,33 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 7256,
-        "peak_pids": 56,
-        "peak_memory_bytes": 370520064,
+        "duration_ms": 5938,
+        "peak_pids": 15,
+        "peak_memory_bytes": 182448128,
         "descendants_by_role": {
           "cli": {
             "processes": 4,
-            "peak_threads": 1,
-            "peak_rss_bytes": 5713920,
-            "first_seen_ms": 1507,
-            "last_seen_ms": 6662
+            "peak_threads": 2,
+            "peak_rss_bytes": 5890048,
+            "first_seen_ms": 1496,
+            "last_seen_ms": 5112
           },
           "observation_worker": {
             "processes": 1,
             "peak_threads": 7,
-            "peak_rss_bytes": 142766080,
-            "first_seen_ms": 2656,
-            "last_seen_ms": 6662
-          },
-          "asset_extraction_worker": {
-            "processes": 2,
-            "peak_threads": 45,
-            "peak_rss_bytes": 58548224,
-            "first_seen_ms": 3157,
-            "last_seen_ms": 4157
+            "peak_rss_bytes": 144146432,
+            "first_seen_ms": 2607,
+            "last_seen_ms": 5112
           },
           "other": {
             "processes": 9,
-            "peak_threads": 2,
-            "peak_rss_bytes": 19623936,
-            "first_seen_ms": 4408,
-            "last_seen_ms": 6662
+            "peak_threads": 1,
+            "peak_rss_bytes": 19726336,
+            "first_seen_ms": 3109,
+            "last_seen_ms": 5112
           }
         },
-        "descendant_count": 16
+        "descendant_count": 14
       }
     },
     {
@@ -151,9 +144,9 @@
         "startup"
       ],
       "phase_time_ns": [
-        256754789,
+        327937498,
         null,
-        619261057,
+        686310917,
         null,
         null,
         null,
@@ -175,47 +168,40 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 7967,
-        "peak_pids": 47,
-        "peak_memory_bytes": 370032640,
+        "duration_ms": 6662,
+        "peak_pids": 46,
+        "peak_memory_bytes": 299868160,
         "descendants_by_role": {
           "cli": {
             "processes": 7,
             "peak_threads": 7,
-            "peak_rss_bytes": 66355200,
-            "first_seen_ms": 1487,
-            "last_seen_ms": 7405
+            "peak_rss_bytes": 66191360,
+            "first_seen_ms": 1306,
+            "last_seen_ms": 5970
           },
           "observation_worker": {
             "processes": 1,
             "peak_threads": 7,
-            "peak_rss_bytes": 142356480,
-            "first_seen_ms": 2649,
-            "last_seen_ms": 7405
-          },
-          "asset_extraction_worker": {
-            "processes": 2,
-            "peak_threads": 22,
-            "peak_rss_bytes": 49074176,
-            "first_seen_ms": 3150,
-            "last_seen_ms": 4151
+            "peak_rss_bytes": 144543744,
+            "first_seen_ms": 2464,
+            "last_seen_ms": 5970
           },
           "other": {
-            "processes": 7,
+            "processes": 11,
             "peak_threads": 2,
-            "peak_rss_bytes": 19726336,
-            "first_seen_ms": 4401,
-            "last_seen_ms": 7405
+            "peak_rss_bytes": 19701760,
+            "first_seen_ms": 2966,
+            "last_seen_ms": 5970
           },
           "graphd": {
             "processes": 1,
             "peak_threads": 29,
-            "peak_rss_bytes": 219811840,
-            "first_seen_ms": 6654,
-            "last_seen_ms": 6905
+            "peak_rss_bytes": 206102528,
+            "first_seen_ms": 5219,
+            "last_seen_ms": 5470
           }
         },
-        "descendant_count": 18
+        "descendant_count": 20
       }
     },
     {
@@ -229,7 +215,7 @@
         null,
         null,
         null,
-        21479803083,
+        20883806012,
         null,
         null,
         null,
@@ -258,7 +244,7 @@
           "other": 0
         },
         "worker_attempts": 1,
-        "graphd_pid": 158,
+        "graphd_pid": 112,
         "graphd_threads": 29,
         "observation_fan_out": 535,
         "ipc_round_trips": 1,
@@ -267,47 +253,40 @@
       "safe_runner": {
         "outcome": "success",
         "limit": null,
-        "duration_ms": 28045,
+        "duration_ms": 26534,
         "peak_pids": 54,
-        "peak_memory_bytes": 979107840,
+        "peak_memory_bytes": 991535104,
         "descendants_by_role": {
           "cli": {
-            "processes": 5,
+            "processes": 6,
             "peak_threads": 7,
-            "peak_rss_bytes": 67796992,
-            "first_seen_ms": 1357,
-            "last_seen_ms": 27424
+            "peak_rss_bytes": 67608576,
+            "first_seen_ms": 1533,
+            "last_seen_ms": 25887
           },
           "observation_worker": {
             "processes": 3,
             "peak_threads": 7,
-            "peak_rss_bytes": 142856192,
-            "first_seen_ms": 2395,
-            "last_seen_ms": 27424
-          },
-          "asset_extraction_worker": {
-            "processes": 2,
-            "peak_threads": 22,
-            "peak_rss_bytes": 48742400,
-            "first_seen_ms": 2897,
-            "last_seen_ms": 3647
+            "peak_rss_bytes": 143699968,
+            "first_seen_ms": 2606,
+            "last_seen_ms": 25887
           },
           "other": {
             "processes": 8,
-            "peak_threads": 1,
+            "peak_threads": 2,
             "peak_rss_bytes": 19701760,
-            "first_seen_ms": 3897,
-            "last_seen_ms": 27173
+            "first_seen_ms": 3109,
+            "last_seen_ms": 25887
           },
           "graphd": {
             "processes": 1,
             "peak_threads": 29,
-            "peak_rss_bytes": 624979968,
-            "first_seen_ms": 6149,
-            "last_seen_ms": 26922
+            "peak_rss_bytes": 635604992,
+            "first_seen_ms": 5109,
+            "last_seen_ms": 25386
           }
         },
-        "descendant_count": 19
+        "descendant_count": 18
       }
     },
     {
@@ -324,54 +303,47 @@
       "safe_runner": {
         "outcome": "safety_limit_exceeded",
         "limit": "pids",
-        "duration_ms": 31920,
+        "duration_ms": 28760,
         "peak_pids": 64,
-        "peak_memory_bytes": 982888448,
+        "peak_memory_bytes": 1003409408,
         "descendants_by_role": {
           "cli": {
             "processes": 6,
             "peak_threads": 7,
-            "peak_rss_bytes": 229433344,
-            "first_seen_ms": 1514,
-            "last_seen_ms": 31415
+            "peak_rss_bytes": 230227968,
+            "first_seen_ms": 1366,
+            "last_seen_ms": 28210
           },
           "retrieval_worker": {
             "processes": 1,
             "peak_threads": 7,
-            "peak_rss_bytes": 143323136,
-            "first_seen_ms": 2631,
-            "last_seen_ms": 29414
-          },
-          "asset_extraction_worker": {
-            "processes": 2,
-            "peak_threads": 1,
-            "peak_rss_bytes": 30035968,
-            "first_seen_ms": 3132,
-            "last_seen_ms": 3881
+            "peak_rss_bytes": 143826944,
+            "first_seen_ms": 2419,
+            "last_seen_ms": 26206
           },
           "other": {
-            "processes": 10,
+            "processes": 8,
             "peak_threads": 2,
-            "peak_rss_bytes": 19640320,
-            "first_seen_ms": 4381,
-            "last_seen_ms": 28161
+            "peak_rss_bytes": 19767296,
+            "first_seen_ms": 2920,
+            "last_seen_ms": 4674
           },
           "graphd": {
-            "processes": 3,
+            "processes": 1,
             "peak_threads": 47,
-            "peak_rss_bytes": 634818560,
-            "first_seen_ms": 6634,
-            "last_seen_ms": 31415
+            "peak_rss_bytes": 739221504,
+            "first_seen_ms": 4924,
+            "last_seen_ms": 28210
           },
           "observation_worker": {
             "processes": 2,
-            "peak_threads": 8,
-            "peak_rss_bytes": 69885952,
-            "first_seen_ms": 6884,
-            "last_seen_ms": 26659
+            "peak_threads": 7,
+            "peak_rss_bytes": 69812224,
+            "first_seen_ms": 5425,
+            "last_seen_ms": 25454
           }
         },
-        "descendant_count": 24
+        "descendant_count": 18
       }
     }
   ],
@@ -379,7 +351,7 @@
     {
       "label": "graphd startup",
       "peak_threads": 47,
-      "peak_rss_bytes": 634818560,
+      "peak_rss_bytes": 739221504,
       "scenarios": [
         "doctor-status-startup",
         "initial-observation",
@@ -387,9 +359,9 @@
       ]
     },
     {
-      "label": "CocoIndex worker",
-      "peak_threads": 45,
-      "peak_rss_bytes": 143323136,
+      "label": "CLI dispatch",
+      "peak_threads": 7,
+      "peak_rss_bytes": 230227968,
       "scenarios": [
         "doctor-status-startup",
         "footprint",
@@ -398,9 +370,9 @@
       ]
     },
     {
-      "label": "CLI dispatch",
+      "label": "CocoIndex worker",
       "peak_threads": 7,
-      "peak_rss_bytes": 229433344,
+      "peak_rss_bytes": 144543744,
       "scenarios": [
         "doctor-status-startup",
         "footprint",
@@ -411,7 +383,7 @@
     {
       "label": "other",
       "peak_threads": 2,
-      "peak_rss_bytes": 19726336,
+      "peak_rss_bytes": 19767296,
       "scenarios": [
         "doctor-status-startup",
         "footprint",
@@ -426,15 +398,11 @@
       "outcome": "safety_limit_exceeded",
       "limit": "pids",
       "peak_pids": 64,
-      "peak_memory_bytes": 982888448,
+      "peak_memory_bytes": 1003409408,
       "dominant_roles": [
         {
           "role": "graphd",
           "peak_threads": 47
-        },
-        {
-          "role": "observation_worker",
-          "peak_threads": 8
         },
         {
           "role": "cli",
@@ -442,6 +410,10 @@
         },
         {
           "role": "retrieval_worker",
+          "peak_threads": 7
+        },
+        {
+          "role": "observation_worker",
           "peak_threads": 7
         }
       ]

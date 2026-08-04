@@ -60,24 +60,27 @@ Removed or deferred:
 
 **Current small-tier blocker:** aggregate task count on `initial-retrieval-readiness`
 still trips cgroup `pids.max` (`peak_pids: 64`, `pids.events.max: 1`) during the
-retrieval `index-embed` + `retrieval.apply` phase. Attribution shows a rebuild-phase
-graphd spike to ~47 threads plus safe-runner infrastructure overhead.
+rebuild-phase `retrieval.apply` burst. Steady-state samples hold at `peak_pids: 54`
+(ADR headroom target); a single 250 ms sample during apply reaches the ceiling.
+Attribution shows one graphd session (peak ~47 threads) plus index-embed worker
+descendants — no longer `detached_descendant` or dual-graphd overlap.
 
 Attribution reference:
 [`benchmarks/runtime-baseline-v1/attribution/small.json`](../runtime-baseline-v1/attribution/small.json).
 
-Latest rerun (2026-08-04, fresh safe-runner state, `/tmp/lamina-baseline-retrieval-test4`):
+Latest rerun (2026-08-04, fresh safe-runner state, `/tmp/lamina-baseline-fix25-1785813162`):
 footprint + doctor + initial-observation **valid**; `initial-retrieval-readiness`
-promotion **invalid** at `peak_pids: 64`.
+promotion **invalid** at `peak_pids: 64` (`limit: pids`, not `detached_descendant`).
 
 Fixes landed on this branch (not yet sufficient for promotion pass):
 
+- `graphdThreadEnvironment` / `graphdEnvironmentFor` apply Ladybug + ONNX thread caps to graphd spawn env
+- Embedded composite lifecycle (`runObservation` / `ensureRetrieval` `embedded: true`) in `graph retrieval-readiness`
+- `warmGraphd`, `LAMINA_GRAPHD_REUSE_ONLY`, and IPC `graph.engine.release` / `graph.retrieval.release` between observe and apply
+- Sealed retrieval-runtime copy from `benchmarks/runtime-baseline-v1/sealed/` (skips per-run `extract-assets`)
 - Split `index-embed` + CLI-side batched `retrieval.apply` under bounded topology
-- Rebuilt `cocoindex-worker` with `retrieval index-embed` subcommand (manifest pin updated)
 - `defer_retrieval_native_index` under bounded topology
-- Subprocess CLI phases in baseline workload with `releaseRuntimeBetweenPhases` +
-  `waitForGraphdFullyReleased` between observe and rebuild
-- Lazy `GraphEngine` init in graphd for retrieval-only IPC (avoids opening `graph.lbdb` early)
+- Lazy `GraphEngine` init in graphd for retrieval-only IPC
 - `applyLadybugThreadCap` on Ladybug connections and per-apply reinforcement
 
 ---

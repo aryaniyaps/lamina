@@ -298,6 +298,27 @@ function managedGraphdPid(paths) {
   }
 }
 
+/** Forcibly stop the managed graphd for this repository when graceful shutdown is too slow. */
+export async function forceStopManagedGraphd(cwd = process.cwd()) {
+  const paths = runtimePaths(cwd);
+  let pid = managedGraphdPid(paths);
+  if (pid || fs.existsSync(paths.lock)) {
+    try { await stopIncompatibleServer(paths, pid); } catch {}
+    pid = managedGraphdPid(paths) || pid;
+    if (pid && processIsRunning(pid)) {
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+      const deadline = Date.now() + 2_000;
+      while (Date.now() < deadline && processIsRunning(pid)) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
+    }
+  }
+  for (const file of [paths.lock, graphSocketPath(paths)]) {
+    try { if (fs.existsSync(file)) fs.unlinkSync(file); } catch {}
+  }
+  return { pid: pid || null, released: !managedGraphdPid(paths) };
+}
+
 /** Wait until graphd lock/socket are absent and no managed graphd pid remains. */
 export async function waitForGraphdFullyReleased(cwd = process.cwd(), { timeoutMs = 30_000 } = {}) {
   const paths = runtimePaths(cwd);
@@ -312,6 +333,8 @@ export async function waitForGraphdFullyReleased(cwd = process.cwd(), { timeoutM
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
+  await forceStopManagedGraphd(cwd);
+  if (!managedGraphdPid(paths)) return { released: true, forced: true };
   const error = new Error('graphd did not release before the next bounded phase.');
   error.code = 'LAMINA_RUNTIME_PHASE_OVERLAP';
   throw error;

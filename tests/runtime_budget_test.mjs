@@ -28,7 +28,10 @@ assert.equal(budget.retrieval_batch_size, 8);
 assert.equal(graphdLadybugThreads(budget), 2);
 assert.equal(workerThreadEnvironment(budget).ORT_NUM_THREADS, '3');
 assert.equal(retrievalBatchEnvironment(budget).LAMINA_RUNTIME_RETRIEVAL_BATCH, '8');
-assert.equal(graphdThreadEnvironment(budget).OMP_NUM_THREADS, '2');
+assert.equal(graphdThreadEnvironment({
+  LAMINA_RUNTIME_BOUNDED_TOPOLOGY: '1',
+  LAMINA_RUNTIME_GRAPHD_THREADS: '2',
+}).OMP_NUM_THREADS, '2');
 assert.equal(observationWorkerThreadEnvironment(budget).COCOINDEX_MAX_INFLIGHT_COMPONENTS, '1');
 assert.equal(retrievalWorkerThreadEnvironment(budget).COCOINDEX_MAX_INFLIGHT_COMPONENTS, '1');
 assert.equal(maxObservationAttempts(budget), 2);

@@ -9,7 +9,11 @@ import {
 } from './constants.mjs';
 import { CLI_VERSION } from '../runtime-identity.mjs';
 import { retrievalRuntimeDirectory } from '../retrieval-runtime/assets.mjs';
-import { graphdThreadEnvironment } from '../runtime-budget.mjs';
+import {
+  applyRuntimeBudgetToEnvironment,
+  graphdThreadEnvironment,
+  runtimeBudgetFromEnvironment,
+} from '../runtime-budget.mjs';
 import {
   bindManagedGraphdWithSupervisor, reserveManagedGraphdWithSupervisor,
   recordManagedGraphdLockWithSupervisor, sealManagedGraphdWithSupervisor,
@@ -66,6 +70,8 @@ export function graphdEnvironmentFor(
   const environment = Object.fromEntries(entries
     .filter(([name]) => !isGraphdExecutionHook(name, platform)
       && (platform !== 'win32' || name.toLowerCase() !== 'path')));
+  const budget = runtimeBudgetFromEnvironment(inheritedEnvironment);
+  Object.assign(environment, applyRuntimeBudgetToEnvironment(environment, budget));
   Object.assign(environment, graphdThreadEnvironment(inheritedEnvironment));
   if (platform !== 'win32') return environment;
   // Ladybug loads extensions dynamically. Windows resolves their OpenSSL
@@ -286,6 +292,9 @@ export async function stopIncompatibleServer(paths, reportedPid = null) {
 }
 
 export async function ensureGraphd(cwd = process.cwd()) {
+  if (process.env.LAMINA_GRAPHD_REUSE_ONLY === '1') {
+    return warmGraphd(cwd);
+  }
   const paths = runtimePaths(cwd);
   const socketPath = graphSocketPath(paths);
   const token = ensureAuthToken(paths);
@@ -365,6 +374,24 @@ export async function ensureGraphd(cwd = process.cwd()) {
     throw error;
   }
   return { ...paths, auth_token: token, daemon };
+}
+
+/** Reuse a compatible graphd without stop/spawn churn (bounded observe→rebuild handoff). */
+export async function warmGraphd(cwd = process.cwd()) {
+  const paths = runtimePaths(cwd);
+  const token = ensureAuthToken(paths);
+  const response = await exchange(graphSocketPath(paths), {
+    id: 'warm-ping',
+    method: 'ping',
+    cwd,
+    auth: token,
+  }, 2_000);
+  if (!response?.ok || !daemonCompatibility(response.result).compatible) {
+    const error = new Error('Expected a compatible warm graphd for reuse.');
+    error.code = 'LAMINA_GRAPHD_UNAVAILABLE';
+    throw error;
+  }
+  return { ...paths, auth_token: token, daemon: response.result };
 }
 
 export async function graphdIdentity(cwd = process.cwd()) {

@@ -2,7 +2,6 @@
 /** graphd: sole Ladybug writer for canonical graph.lbdb and derived retrieval.lbdb (#69). */
 import fs from 'node:fs';
 import net from 'node:net';
-import path from 'node:path';
 import crypto from 'node:crypto';
 import { GraphEngine } from './engine.mjs';
 import { RetrievalStore } from '../retrieval-runtime/store.mjs';
@@ -13,7 +12,6 @@ import {
   recordManagedGraphdLockWithSupervisor, startManagedGraphdWithSupervisor,
 } from '../safe-runner-context.mjs';
 import {
-  digest,
   ensureAuthToken,
   graphSocketPath,
   parseDaemonLock,
@@ -61,13 +59,6 @@ async function awaitSafeStartGate() {
 
 await awaitSafeStartGate();
 const authToken = ensureAuthToken(paths);
-const observationGenerationPath = path.join(paths.cocoindex, 'target-generation');
-if (!fs.existsSync(observationGenerationPath)) {
-  fs.writeFileSync(observationGenerationPath, `${digest('generation', {
-    nonce: crypto.randomUUID(),
-    database: paths.database,
-  })}\n`);
-}
 
 function acquireLock() {
   try {
@@ -125,8 +116,12 @@ if (process.platform !== 'win32') {
     if (error?.code !== 'ENOENT') throw error;
   }
 }
-const retrieval = new RetrievalStore(paths);
 const retrievalEmbedder = new RetrievalEmbedder();
+let retrieval = null;
+function retrievalStore() {
+  if (!retrieval) retrieval = new RetrievalStore(paths);
+  return retrieval;
+}
 let graphEngine = null;
 function engine() {
   if (!graphEngine) graphEngine = new GraphEngine(paths);
@@ -152,22 +147,36 @@ async function dispatch(request) {
     capabilities: GRAPH_CAPABILITIES,
   };
   if (request.method === 'shutdown') return { pid: process.pid, shutting_down: true };
+  if (request.method === 'graph.engine.release') {
+    if (graphEngine) {
+      try { graphEngine.close(); } catch {}
+      graphEngine = null;
+    }
+    return { released: true, pid: process.pid };
+  }
+  if (request.method === 'graph.retrieval.release') {
+    if (retrieval) {
+      try { retrieval.close(); } catch {}
+      retrieval = null;
+    }
+    return { released: true, pid: process.pid };
+  }
   if (request.method === 'observation.apply') return engine().applyObservationBatch(request.params || {});
   if (request.method === 'observation.status') return engine().observationStatus(request.params || {});
   if (request.method === 'observation.invalidate') return engine().invalidateObservations(request.params?.product || paths.product);
-  if (request.method === 'retrieval.status') return retrieval.status(request.params || {});
-  if (request.method === 'retrieval.apply') return retrieval.apply(request.params || {});
+  if (request.method === 'retrieval.status') return retrievalStore().status(request.params || {});
+  if (request.method === 'retrieval.apply') return retrievalStore().apply(request.params || {});
   if (request.method === 'retrieval.query') {
     const params = request.params || {};
-    const status = retrieval.status(params);
+    const status = retrievalStore().status(params);
     const embedding = params.embedding || (await retrievalEmbedder.embed(
       [params.query],
       status.manifest?.model_digest || params.model_digest,
       params.degradation || null,
     ))[0];
-    return retrieval.retrievalQuery({ ...params, embedding });
+    return retrievalStore().retrievalQuery({ ...params, embedding });
   }
-  if (request.method === 'retrieval.invalidate') return retrieval.invalidate(request.params || {});
+  if (request.method === 'retrieval.invalidate') return retrievalStore().invalidate(request.params || {});
   const context = engine().currentContext(request.cwd || cwd);
   switch (request.method) {
     case 'status': return engine().status(context);
@@ -252,7 +261,7 @@ const server = net.createServer((socket) => {
 function shutdown() {
   server.close(() => {
     try { retrievalEmbedder.close(); } catch {}
-    try { retrieval.close(); } catch {}
+    try { retrieval?.close(); } catch {}
     try { graphEngine?.close(); } catch {}
     process.exit(0);
   });

@@ -120,7 +120,8 @@ export function retrievalWorkerThreadEnvironment(budget = runtimeBudgetFromEnvir
   return observationWorkerThreadEnvironment(budget);
 }
 
-export function graphdThreadEnvironment(budget = runtimeBudgetFromEnvironment()) {
+export function graphdThreadEnvironment(env = process.env) {
+  const budget = runtimeBudgetFromEnvironment(env);
   if (!budget) return {};
   return threadLimitEnvironment(budget.graphd_threads);
 }
