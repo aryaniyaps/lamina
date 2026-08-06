@@ -138,7 +138,7 @@ catalog:
   "oxfmt": "0.35.0"
   "oxlint": "1.51.0"
   "pdf-parse": "^2.4.5"
-  "postcss": "8.5.15"
+  "postcss": "8.5.23"
   "postcss-cli": "^11.0.0"
   "postcss-nested": "^6.0.1"
   "prosemirror-codemark": "^0.4.2"
@@ -225,7 +225,7 @@ overrides:
   "yaml@2": 2.8.3
   path-to-regexp: 0.1.13
   defu: 6.1.5
-  postcss: 8.5.15
+  postcss: 8.5.23
   axios: "catalog:"
   follow-redirects: 1.16.0
   uuid: "catalog:"
