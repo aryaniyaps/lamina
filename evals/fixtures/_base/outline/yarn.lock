@@ -10235,14 +10235,14 @@ __metadata:
   linkType: hard
 
 "dompurify@npm:^3.3.1":
-  version: 3.4.10
-  resolution: "dompurify@npm:3.4.10"
+  version: 3.4.12
+  resolution: "dompurify@npm:3.4.12"
   dependencies:
     "@types/trusted-types": "npm:^2.0.7"
   dependenciesMeta:
     "@types/trusted-types":
       optional: true
-  checksum: 10c0/6ffbc564c09ae11f9e1ab97040d556f8fafb0a5221248fca02539378d442f4fbe737ebb72dd34309c46896f1093714622895cc6815a7a57599c4511e30e234ae
+  checksum: 10c0/127a13817353d4e20e75a991a9022a04c3af12af7479f68e2b8bee6dbc7330a96edfb8f4ebff96f4f0f24cd43e8dbba46214131f510c3aa87a843bd8b610d0ab
   languageName: node
   linkType: hard
 
