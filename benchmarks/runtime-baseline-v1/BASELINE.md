@@ -2,11 +2,13 @@
 
 ## Status
 
-Recorded through the first enforced safety refusal on 2026-08-02. The small
-fixture produced valid footprint and cold doctor/status/startup results. Its
-initial observation then reached the unchanged aggregate `pids.max=64` ceiling,
-so that scenario is invalid and every later scenario and tier is explicitly
-blocked. The PID-limit peaks are safety diagnostics, not performance samples.
+Recorded through the first enforced safety refusal on 2026-08-02. Re-validated on
+2026-08-03 at Lamina commit `104153a1` (post-PR #66 merge) with the same
+outcome: the small fixture produced valid footprint and cold doctor/status/startup
+results, then its initial observation reached the unchanged aggregate
+`pids.max=64` ceiling, so that scenario remains invalid and every later scenario
+and tier is explicitly blocked. The PID-limit peaks are safety diagnostics, not
+performance samples.
 
 This is the truthful unoptimized baseline. The harness measures the public CLI
 commands and does not alter Lamina's stores, model, worker topology, batching,
@@ -36,7 +38,7 @@ rules, file allowlists, LOC ranges, file-size ceiling, and asset URLs.
 
 | Field | Value |
 | --- | --- |
-| Lamina commit | `c087420266f7d6231c37fa9afc6c445b51bff48e` |
+| Lamina commit | `104153a10f71a613fcd3ac9cc6b9aff26aa104d7` |
 | Host | Linux x64, kernel `7.0.0-28-generic`, Intel Core Ultra 9 185H |
 | Memory | 65,562,333,184 bytes |
 | Runtime | Node `v24.18.0`; glibc `2.43` |
@@ -47,14 +49,15 @@ rules, file allowlists, LOC ranges, file-size ceiling, and asset URLs.
 Immediately before measurement, the complete production adversarial command
 
 ```sh
-LAMINA_SAFE_RUNNER_STATE_DIR=/tmp/lamina-issue60-final-safe-state \
+LAMINA_SAFE_RUNNER_STATE_DIR=/tmp/lamina-runtime-baseline-safe-state \
   npm run safe:self-test -- --require-production
 ```
 
 passed all cases. It proved direct and aggregate memory enforcement, PID,
 timeout, output, temporary-disk, controller-signal, supervisor-SIGKILL,
 detached-descendant, and exact cleanup behavior. Every case reported
-`cleanup_verified: true`; the attestation time was `2026-08-02T05:39:04.219Z`.
+`cleanup_verified: true`; the latest attestation time was
+`2026-08-03T16:12:26.308Z`.
 
 The host path for the root-owned distribution bwrap is intentional. Ubuntu's
 path-based AppArmor policy recognizes the distribution executable but not a
@@ -104,7 +107,7 @@ Doctor itself took 56.699-71.994 ms. Status plus cold graphd startup took
 
 | Scenario | Status | Evidence |
 | --- | --- | --- |
-| Initial observation | Invalid: aggregate PID safety limit | 9,817 ms to stop; 64-task sampled peak; `pids.events.max=5`; 696,369,152-byte cgroup diagnostic peak; SIGTERM requested; zero descendants and managed paths; scope and temporary directory removed |
+| Initial observation | Invalid: aggregate PID safety limit | 11,346 ms to stop (2026-08-03 re-run); 64-task sampled peak; 717,111,296-byte cgroup diagnostic peak; SIGTERM requested; zero descendants and managed paths; scope and temporary directory removed |
 | Initial retrieval readiness | Blocked after previous failure | Not released |
 | First useful preparation | Blocked after previous failure | Not released |
 | Warm preparation | Blocked after previous failure | Not released |
@@ -124,15 +127,19 @@ architecture.
 
 ## Result identity and reproduction
 
-The schema-valid local result set is preserved at
+The schema-valid local result set from the original 2026-08-02 run is preserved at
 `/tmp/lamina-runtime-baseline-small-20260802-r29` on the qualifying host. Its
 index SHA-256 is
 `658420c27ff3d6c85af7c439173cb6bdbf0756afc894b99bb6344360abe24801`.
-Raw safe-runner report digests are:
 
-- footprint: `580d25c35f51738808d77d052225dda9a65eb55a1777f5ae53833ff7617743a3`;
-- doctor/status samples: `1b736ca81ee88894036a2fd75faaaa58b68596e514c4eecb46d068988e4a78c5`, `0bd786210e01cbf8c4e86140efe6cefa1cc651f5f8a9e2e0af929fccc8d1c366`, and `70f77302b830b7fc45e05bd2520699a65108ddec9779be8dec9e001b5d889fff`;
-- initial-observation refusal: `e4d72608b688c0981013676e450c9764c0718689e311b03121562c4df8e4da4f`.
+The 2026-08-03 post-#66 re-validation result set is at
+`/tmp/lamina-runtime-baseline-small` on the same host. Its index SHA-256 is
+`bababbe1692c809c837e43e48cf1cdf645422ecf6375f6296f1774f6c2f3b66e`.
+Raw safe-runner report digests from that re-run are:
+
+- footprint: `b21f9adae9551ad4e2583f123e700fcc66e13a84170b482c48888aeb45d32651`;
+- doctor/status samples: `b7956e19f478d277fc2cdd327e34a791d00fadc9da3884c21e40256e61a096a5`, `463c977d330681e069afe49c30d46fc2528c9687dd766d9a3a488789ed17b144`, and `feda78e255e88022c19f3c32ef9c90bb70982dd36af4ba71e2469e66fc897dd0`;
+- initial-observation refusal: `c2da297a1e07018a4398283b43eb3a09eb45ef0397c4dc4064521e9346cbb2bf`.
 
 After downloading the two checksum-pinned assets to the paths shown below, a
 compatible Linux host can reproduce the run without source edits:
