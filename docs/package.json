@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@xyflow/react": "^12.11.2",
-    "next": "16.2.10",
+    "next": "16.3.3",
     "nextra": "^4.6.1",
     "nextra-theme-docs": "^4.6.1",
     "react": "19.2.4",
